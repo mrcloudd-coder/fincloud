@@ -1,5 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import TransactionsTable from './table'
+import { getSubscriptionInfo } from '@/lib/subscription'
+import Link from 'next/link'
+import { AlertTriangle } from 'lucide-react'
 
 const MONTH_NAMES = [
   'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
@@ -18,6 +21,8 @@ export default async function TransactionsPage({
 
   if (!user) return null
 
+  const subscription = await getSubscriptionInfo(supabase, user.id)
+
   const params = await searchParams
   const now = new Date()
   const selectedYear = Number(params.year) || now.getFullYear()
@@ -26,17 +31,16 @@ export default async function TransactionsPage({
   const startDate = new Date(selectedYear, selectedMonth - 1, 1).toISOString().slice(0, 10)
   const endDate = new Date(selectedYear, selectedMonth, 0).toISOString().slice(0, 10)
 
-  const [{ data: transactions }, { data: categories }, { data: accounts }] = await Promise.all([
+  const [{ data: transactions }, { data: categories }] = await Promise.all([
     supabase
       .from('transactions')
-      .select('id, item, amount, date, category:categories(id, name, color), account:accounts(id, name, color)')
+      .select('id, item, amount, date, category:categories(id, name, color)')
       .eq('user_id', user.id)
       .gte('date', startDate)
       .lte('date', endDate)
       .order('date', { ascending: false })
       .order('created_at', { ascending: false }),
     supabase.from('categories').select('id, name, color').order('name'),
-    supabase.from('accounts').select('id, name, color').order('name'),
   ])
 
   // Pilihan tahun: 4 tahun ke belakang sampai tahun sekarang
@@ -49,14 +53,27 @@ export default async function TransactionsPage({
         Lihat transaksi per bulan, edit atau export ke Excel.
       </p>
 
+      {!subscription.hasFullAccess && (
+        <Link
+          href="/billing"
+          className="flex items-center gap-3 mb-6 p-4 rounded-xl"
+          style={{ background: '#fdeeee' }}
+        >
+          <AlertTriangle size={18} style={{ color: 'var(--danger)' }} />
+          <p className="text-sm font-medium" style={{ color: 'var(--danger)' }}>
+            Langganan tidak aktif — edit, hapus, dan export dinonaktifkan. Klik untuk berlangganan.
+          </p>
+        </Link>
+      )}
+
       <TransactionsTable
         initialTransactions={transactions ?? []}
         categories={categories ?? []}
-        accounts={accounts ?? []}
         monthNames={MONTH_NAMES}
         yearOptions={yearOptions}
         selectedYear={selectedYear}
         selectedMonth={selectedMonth}
+        hasFullAccess={subscription.hasFullAccess}
       />
     </div>
   )

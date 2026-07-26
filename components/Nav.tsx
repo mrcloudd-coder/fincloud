@@ -3,13 +3,13 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Home, Tag, List, LogOut, MessageCircleQuestion, Wallet } from 'lucide-react'
+import { Home, Tag, List, LogOut, MessageCircleQuestion, CreditCard } from 'lucide-react'
 
 const links = [
   { href: '/dashboard', label: 'Beranda', icon: Home },
-  { href: '/accounts', label: 'Rekening', icon: Wallet },
   { href: '/categories', label: 'Kategori', icon: Tag },
   { href: '/transactions', label: 'Riwayat', icon: List },
+  { href: '/billing', label: 'Langganan', icon: CreditCard },
 ]
 
 const TELEGRAM_CONTACT = 'https://t.me/mrclooudd'
@@ -72,15 +72,15 @@ export default function Nav() {
           <Link
             key={href}
             href={href}
-            className="flex flex-col items-center gap-0.5 px-4 py-1.5 text-xs"
+            className="flex flex-col items-center gap-0.5 px-2 py-1.5 text-[11px]"
             style={{ color: pathname === href ? 'var(--primary)' : 'var(--ink-soft)' }}
           >
-            <Icon size={20} />
+            <Icon size={18} />
             {label}
           </Link>
         ))}
-        <button onClick={handleLogout} className="flex flex-col items-center gap-0.5 px-4 py-1.5 text-xs" style={{ color: 'var(--danger)' }}>
-          <LogOut size={20} />
+        <button onClick={handleLogout} className="flex flex-col items-center gap-0.5 px-2 py-1.5 text-[11px]" style={{ color: 'var(--danger)' }}>
+          <LogOut size={18} />
           Keluar
         </button>
       </nav>

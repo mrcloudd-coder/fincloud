@@ -117,3 +117,57 @@ dipakai kena limit — user nggak akan sadar/terganggu.
 
 Sistem akan otomatis coba key pertama dulu; kalau limitnya habis, otomatis lanjut ke
 key berikutnya di daftar, sampai salah satu berhasil.
+
+## Sistem Langganan & Pembayaran (Midtrans)
+
+Aplikasi ini punya sistem trial 7 hari, lalu wajib berlangganan Rp49.000/30 hari.
+User yang trial-nya habis dan belum bayar otomatis dibatasi: 1 chat/hari (maks 8 kata),
+tidak bisa edit/hapus transaksi, tidak bisa export Excel.
+
+### 1. Jalankan migration database
+Di Supabase SQL Editor, jalankan file `supabase/migration-subscription.sql`
+(setelah `schema.sql` yang lama sudah pernah dijalankan).
+
+### 2. Ambil Service Role Key dari Supabase
+1. Dashboard Supabase -> **Settings** -> **API**
+2. Cari **service_role key** (beda dengan anon/publishable key yang sudah dipakai)
+3. Copy — key ini **RAHASIA**, jangan pernah taruh di kode/expose ke browser
+
+### 3. Bikin akun Midtrans
+1. Daftar di [midtrans.com](https://midtrans.com) -> pilih **Sandbox** dulu untuk testing
+   (gratis, tidak perlu verifikasi bisnis dulu)
+2. Dashboard Midtrans -> **Settings** -> **Access Keys**
+3. Copy **Server Key** dan **Client Key** (masing-masing ada versi Sandbox & Production)
+
+### 4. Pasang di Vercel
+Tambahkan environment variables berikut (Settings -> Environment Variables):
+
+| Key | Value |
+|---|---|
+| `SUPABASE_SERVICE_ROLE_KEY` | service_role key dari Supabase |
+| `MIDTRANS_SERVER_KEY` | Server Key dari Midtrans |
+| `NEXT_PUBLIC_MIDTRANS_CLIENT_KEY` | Client Key dari Midtrans |
+| `MIDTRANS_IS_PRODUCTION` | `false` (Sandbox) atau `true` (Production) |
+| `NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION` | sama dengan di atas |
+
+### 5. Daftarkan URL webhook di Midtrans
+1. Dashboard Midtrans -> **Settings** -> **Configuration**
+2. Isi **Payment Notification URL** dengan:
+   ```
+   https://nama-project-kamu.vercel.app/api/billing/webhook
+   ```
+3. Save
+
+Ini penting — tanpa ini, status pembayaran user tidak akan otomatis ter-update
+setelah mereka bayar.
+
+### 6. Testing di Sandbox
+Sebelum ganti ke Production, coba dulu alur bayar pakai Sandbox — Midtrans kasih
+[kartu/akun simulasi](https://docs.midtrans.com/docs/testing-payment-on-sandbox)
+untuk testing tanpa uang beneran.
+
+### 7. Ganti ke Production
+Setelah yakin semua jalan lancar, dan akun Midtrans kamu sudah diverifikasi untuk
+Production: ganti `MIDTRANS_SERVER_KEY`/`NEXT_PUBLIC_MIDTRANS_CLIENT_KEY` ke versi
+Production, dan ubah `MIDTRANS_IS_PRODUCTION` + `NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION`
+jadi `true`. Jangan lupa update juga webhook URL di dashboard Midtrans ke mode Production.

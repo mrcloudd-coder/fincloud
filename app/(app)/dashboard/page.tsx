@@ -3,8 +3,10 @@ import DashboardCharts from './charts'
 import IncomeManager from './income-manager'
 import QuickChat from './quick-chat'
 import AnnualCharts from './annual-charts'
-import AccountBalanceCharts from './account-balance'
+import ExpenseCalendar from './calendar'
 import Link from 'next/link'
+import { getSubscriptionInfo } from '@/lib/subscription'
+import { Clock, AlertTriangle } from 'lucide-react'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -13,6 +15,8 @@ export default async function DashboardPage() {
   } = await supabase.auth.getUser()
 
   if (!user) return null
+
+  const subscription = await getSubscriptionInfo(supabase, user.id)
 
   const now = new Date()
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
@@ -24,17 +28,16 @@ export default async function DashboardPage() {
     'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
   ]
 
-  const [{ data: income }, { data: transactions }, { data: categories }, { data: accounts }, { data: yearTransactions }, { data: yearIncome }] = await Promise.all([
-    supabase.from('income').select('id, amount, source, date, account_id').eq('user_id', user.id).gte('date', startOfMonth).order('date', { ascending: false }),
+  const [{ data: income }, { data: transactions }, { data: categories }, { data: yearTransactions }, { data: yearIncome }] = await Promise.all([
+    supabase.from('income').select('id, amount, source, date').eq('user_id', user.id).gte('date', startOfMonth).order('date', { ascending: false }),
     supabase
       .from('transactions')
-      .select('id, item, amount, date, account_id, category:categories(name, color)')
+      .select('id, item, amount, date, category:categories(name, color)')
       .eq('user_id', user.id)
       .gte('date', startOfMonth)
       .order('date', { ascending: false })
       .order('created_at', { ascending: false }),
     supabase.from('categories').select('id, name').order('name'),
-    supabase.from('accounts').select('id, name, color').order('name'),
     supabase.from('transactions').select('amount, date').eq('user_id', user.id).gte('date', yearStart).lte('date', yearEnd),
     supabase.from('income').select('amount, date').eq('user_id', user.id).gte('date', yearStart).lte('date', yearEnd),
   ])
@@ -66,12 +69,10 @@ export default async function DashboardPage() {
     byCategory[name].value += Number(t.amount)
   }
 
-  // Agregasi saldo per rekening (pemasukan & pengeluaran bulan ini)
-  const accountBalanceData = (accounts ?? []).map((acc) => {
-    const accIncome = (income ?? []).filter((i) => i.account_id === acc.id).reduce((sum, i) => sum + Number(i.amount), 0)
-    const accExpense = (transactions ?? []).filter((t) => t.account_id === acc.id).reduce((sum, t) => sum + Number(t.amount), 0)
-    return { id: acc.id, name: acc.name, color: acc.color, income: accIncome, expense: accExpense }
-  })
+  const dailyTotals: Record<string, number> = {}
+  for (const t of transactions ?? []) {
+    dailyTotals[t.date] = (dailyTotals[t.date] ?? 0) + Number(t.amount)
+  }
 
   const previewRows = (transactions ?? []).slice(0, 15)
 
@@ -81,6 +82,32 @@ export default async function DashboardPage() {
       <p className="text-sm mb-6" style={{ color: 'var(--ink-soft)' }}>
         {now.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}
       </p>
+
+      {subscription.status === 'trialing' && subscription.hasFullAccess && (
+        <Link
+          href="/billing"
+          className="flex items-center gap-3 mb-6 p-4 rounded-xl"
+          style={{ background: 'var(--primary-soft)' }}
+        >
+          <Clock size={18} style={{ color: 'var(--primary)' }} />
+          <p className="text-sm font-medium" style={{ color: 'var(--primary)' }}>
+            Masa coba gratis: {subscription.daysLeftInTrial} hari lagi — klik untuk lihat detail langganan
+          </p>
+        </Link>
+      )}
+
+      {!subscription.hasFullAccess && (
+        <Link
+          href="/billing"
+          className="flex items-center gap-3 mb-6 p-4 rounded-xl"
+          style={{ background: '#fdeeee' }}
+        >
+          <AlertTriangle size={18} style={{ color: 'var(--danger)' }} />
+          <p className="text-sm font-medium" style={{ color: 'var(--danger)' }}>
+            Langganan tidak aktif — fitur dibatasi. Klik untuk berlangganan lagi.
+          </p>
+        </Link>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <div className="card p-5">
@@ -103,15 +130,15 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-        <QuickChat categories={categories ?? []} accounts={accounts ?? []} />
-        <div className="card p-5">
-          <IncomeManager incomeList={income ?? []} accounts={accounts ?? []} />
-        </div>
+      <div className="mb-6">
+        <ExpenseCalendar dailyTotals={dailyTotals} year={now.getFullYear()} month={now.getMonth()} />
       </div>
 
-      <div className="mb-6">
-        <AccountBalanceCharts data={accountBalanceData} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+        <QuickChat categories={categories ?? []} />
+        <div className="card p-5">
+          <IncomeManager incomeList={income ?? []} />
+        </div>
       </div>
 
       <div className="mb-6">
