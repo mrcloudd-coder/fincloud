@@ -4,7 +4,7 @@ const DAY_NAMES = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab']
 
 function formatShort(value: number) {
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}jt`
-  if (value >= 1_000) return `${Math.round(value / 1_000)}rb`
+  if (value >= 1_000) return `${Math.round(value / 1_000)}k`
   return String(value)
 }
 
@@ -26,15 +26,12 @@ export default function ExpenseCalendar({
     ...Array(firstDayWeekday).fill(null),
     ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
   ]
-  // Genapkan ke kelipatan 7 biar grid rapi
   while (cells.length % 7 !== 0) cells.push(null)
-
-  const maxAmount = Math.max(1, ...Object.values(dailyTotals))
 
   return (
     <div className="card p-5">
-      <h2 className="text-sm font-medium mb-3">
-        📅 Kalender Pengeluaran —{' '}
+      <h2 className="text-sm font-medium mb-3 flex items-center gap-1.5">
+        ☁️ Kalender Pengeluaran —{' '}
         {new Date(year, month, 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}
       </h2>
 
@@ -51,29 +48,45 @@ export default function ExpenseCalendar({
           const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
           const amount = dailyTotals[dateKey] ?? 0
           const isToday = isCurrentMonth && today.getDate() === day
-          const intensity = amount > 0 ? Math.min(1, amount / maxAmount) : 0
+          const hasExpense = amount > 0
 
+          if (hasExpense) {
+            // Hari ada pengeluaran: bentuk kayak awan, angka jadi fokus utama, tanpa tanggal
+            return (
+              <div
+                key={i}
+                className="aspect-square flex items-center justify-center relative"
+                style={{
+                  borderRadius: '45% 45% 50% 50% / 55% 55% 45% 45%',
+                  background: 'linear-gradient(160deg, #cfe8de 0%, #a9d4c4 100%)',
+                  boxShadow: isToday ? '0 0 0 2px var(--primary)' : 'inset 0 -2px 4px rgba(15,102,80,0.12)',
+                }}
+                title={`Rp${amount.toLocaleString('id-ID')}`}
+              >
+                <span className="absolute top-0.5 left-1 text-[9px] opacity-60">☁️</span>
+                <span
+                  className="font-extrabold leading-none px-0.5 text-center"
+                  style={{ color: 'var(--green-dark, #0b4f3d)', fontSize: '13px' }}
+                >
+                  {formatShort(amount)}
+                </span>
+              </div>
+            )
+          }
+
+          // Hari tanpa pengeluaran: polos, cuma tanggal kecil
           return (
             <div
               key={i}
-              className="aspect-square rounded-lg flex flex-col items-center justify-center px-0.5"
+              className="aspect-square rounded-lg flex items-center justify-center"
               style={{
-                background: amount > 0 ? `rgba(15,102,80,${0.08 + intensity * 0.22})` : 'var(--bg)',
+                background: 'var(--bg)',
                 border: isToday ? '2px solid var(--primary)' : '1px solid transparent',
               }}
-              title={amount > 0 ? `Rp${amount.toLocaleString('id-ID')}` : undefined}
             >
-              <span
-                className="text-xs font-semibold"
-                style={{ color: isToday ? 'var(--primary)' : 'var(--ink)' }}
-              >
+              <span className="text-xs" style={{ color: isToday ? 'var(--primary)' : 'var(--ink-soft)' }}>
                 {day}
               </span>
-              {amount > 0 && (
-                <span className="text-[10px] font-medium leading-none mt-0.5" style={{ color: 'var(--primary)' }}>
-                  {formatShort(amount)}
-                </span>
-              )}
             </div>
           )
         })}
