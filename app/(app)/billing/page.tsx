@@ -16,7 +16,7 @@ export default async function BillingPage() {
     <div className="max-w-lg mx-auto px-4 py-8">
       <h1 className="text-xl font-semibold mb-1">Langganan</h1>
       <p className="text-sm mb-6" style={{ color: 'var(--ink-soft)' }}>
-        Kelola status langganan Catatan Keuangan AI kamu.
+        Kelola status langganan FinCloud kamu.
       </p>
 
       <BillingCard subscription={subscription} />

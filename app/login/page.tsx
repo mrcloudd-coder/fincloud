@@ -54,7 +54,7 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <h1 className="text-2xl font-semibold" style={{ color: 'var(--primary)' }}>
-            Catatan Keuangan AI
+            FinCloud
           </h1>
           <p className="text-sm mt-1" style={{ color: 'var(--ink-soft)' }}>
             Cukup chat, AI yang catat pengeluaranmu

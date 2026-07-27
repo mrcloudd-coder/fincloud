@@ -1,6 +1,6 @@
 {
-  "name": "Catatan Keuangan AI · by cloud.studio",
-  "short_name": "Keuangan AI",
+  "name": "FinCloud · by cloud.studio",
+  "short_name": "FinCloud",
   "description": "Catat pengeluaranmu cukup dengan chat, AI yang urus sisanya — by cloud.studio",
   "start_url": "/dashboard",
   "display": "standalone",

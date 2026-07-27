@@ -3,7 +3,7 @@ import "./globals.css";
 import RegisterSW from "@/components/RegisterSW";
 
 export const metadata: Metadata = {
-  title: "Catatan Keuangan AI · by cloud.studio",
+  title: "FinCloud · by cloud.studio",
   description: "Catat pengeluaranmu cukup dengan chat — by cloud.studio",
   manifest: "/manifest.json",
   icons: {
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Keuangan AI",
+    title: "FinCloud",
   },
 };
 

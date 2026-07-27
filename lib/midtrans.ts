@@ -38,7 +38,7 @@ export async function createSnapTransaction(orderId: string, userEmail: string) 
           id: 'langganan-bulanan',
           price: SUBSCRIPTION_PRICE,
           quantity: 1,
-          name: 'Langganan Catatan Keuangan AI (30 hari)',
+          name: 'Langganan FinCloud (30 hari)',
         },
       ],
       credit_card: { secure: true },

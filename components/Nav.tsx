@@ -32,7 +32,7 @@ export default function Nav() {
       <header className="hidden sm:flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: 'var(--border)' }}>
         <div className="flex items-baseline gap-2">
           <span className="font-semibold" style={{ color: 'var(--primary)' }}>
-            Catatan Keuangan AI
+            FinCloud
           </span>
           <span className="text-xs italic" style={{ color: 'var(--ink-soft)' }}>
             by cloud.studio
