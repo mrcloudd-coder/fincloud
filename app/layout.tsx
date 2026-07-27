@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import RegisterSW from "@/components/RegisterSW";
 
 export const metadata: Metadata = {
   title: "Catatan Keuangan AI · by cloud.studio",
@@ -30,7 +31,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="id" className="h-full antialiased">
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <RegisterSW />
+        {children}
+      </body>
     </html>
   );
 }
