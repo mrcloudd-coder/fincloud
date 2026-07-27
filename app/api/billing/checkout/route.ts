@@ -12,9 +12,10 @@ export async function POST() {
     return NextResponse.json({ error: 'Belum login' }, { status: 401 })
   }
 
-  // order_id harus unik tiap transaksi. Sisipkan user id di dalamnya supaya
-  // webhook nanti bisa tahu ini pembayaran milik siapa.
-  const orderId = `sub-${user.id}-${Date.now()}`
+  // order_id harus unik tiap transaksi & maksimal 50 karakter (limit Midtrans).
+  // UUID user (36 karakter) sudah makan banyak jatah, jadi timestamp dipakai
+  // dalam format base36 (lebih pendek) alih-alih angka desimal biasa.
+  const orderId = `sub-${user.id}-${Date.now().toString(36)}`
 
   try {
     const snap = await createSnapTransaction(orderId, user.email ?? '')

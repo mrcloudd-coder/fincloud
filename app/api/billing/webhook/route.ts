@@ -41,8 +41,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ received: true, note: 'Signature tidak valid, diabaikan.' })
   }
 
-  // order_id formatnya: sub-{userId}-{timestamp}
-  const match = order_id.match(/^sub-(.+)-\d+$/)
+  // order_id formatnya: sub-{userId}-{timestampBase36}
+  const match = order_id.match(/^sub-(.+)-[a-z0-9]+$/)
   if (!match) {
     return NextResponse.json({ received: true, note: 'order_id tidak dikenali, diabaikan.' })
   }
