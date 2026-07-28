@@ -118,48 +118,60 @@ export default async function DashboardPage() {
         </Link>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <div className="card p-5">
-          <p className="text-xs mb-1" style={{ color: 'var(--ink-soft)' }}>Pemasukan</p>
-          <p className="text-2xl font-semibold" style={{ color: 'var(--primary)' }}>
-            Rp{totalIncome.toLocaleString('id-ID')}
-          </p>
-        </div>
-        <div className="card p-5">
-          <p className="text-xs mb-1" style={{ color: 'var(--ink-soft)' }}>Pengeluaran</p>
-          <p className="text-2xl font-semibold" style={{ color: 'var(--accent)' }}>
-            Rp{totalExpense.toLocaleString('id-ID')}
-          </p>
-        </div>
-        <div className="card p-5">
-          <p className="text-xs mb-1" style={{ color: 'var(--ink-soft)' }}>Sisa saldo</p>
-          <p className="text-2xl font-semibold" style={{ color: remaining >= 0 ? 'var(--primary)' : 'var(--danger)' }}>
-            Rp{remaining.toLocaleString('id-ID')}
-          </p>
+      <div
+        className="rounded-2xl p-6 mb-4 relative overflow-hidden"
+        style={{
+          background: remaining >= 0
+            ? 'linear-gradient(135deg, #14785f 0%, #0a4a3a 100%)'
+            : 'linear-gradient(135deg, #c0473f 0%, #7a2c27 100%)',
+        }}
+      >
+        <div
+          className="absolute rounded-full"
+          style={{ width: 180, height: 180, top: -60, right: -60, background: 'rgba(255,255,255,0.06)' }}
+        />
+        <p className="text-xs font-medium mb-1 relative" style={{ color: 'rgba(255,255,255,0.7)' }}>
+          Sisa saldo
+        </p>
+        <p className="text-4xl font-bold text-white tracking-tight relative">
+          Rp{remaining.toLocaleString('id-ID')}
+        </p>
+        <div className="flex gap-6 mt-4 pt-4 relative" style={{ borderTop: '1px solid rgba(255,255,255,0.18)' }}>
+          <div>
+            <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.65)' }}>Pemasukan</p>
+            <p className="text-sm font-semibold text-white">Rp{totalIncome.toLocaleString('id-ID')}</p>
+          </div>
+          <div>
+            <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.65)' }}>Pengeluaran</p>
+            <p className="text-sm font-semibold" style={{ color: '#ffd9b8' }}>Rp{totalExpense.toLocaleString('id-ID')}</p>
+          </div>
         </div>
       </div>
 
-      <div className="mb-6">
-        <ExpenseCalendar dailyTotals={dailyTotals} year={now.getFullYear()} month={now.getMonth()} />
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+      <div className="mb-4">
         <QuickChat categories={categories ?? []} accounts={accounts ?? []} />
+      </div>
+
+      <div className="mb-4">
         <div className="card p-5">
           <IncomeManager incomeList={income ?? []} accounts={accounts ?? []} />
         </div>
       </div>
 
-      <div className="mb-6">
+      <div className="mb-4">
         <AccountBalanceCharts data={accountBalanceData} />
       </div>
 
-      <div className="mb-6">
+      <div className="mb-4">
         <DashboardCharts
           categoryData={Object.values(byCategory)}
           totalIncome={totalIncome}
           totalExpense={totalExpense}
         />
+      </div>
+
+      <div className="mb-4">
+        <ExpenseCalendar dailyTotals={dailyTotals} year={now.getFullYear()} month={now.getMonth()} />
       </div>
 
       <div className="mb-6">

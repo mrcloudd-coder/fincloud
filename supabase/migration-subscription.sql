@@ -53,12 +53,12 @@ returns boolean as $$
   );
 $$ language sql security definer set search_path = public stable;
 
--- 4. Trigger: otomatis bikin subscription trial 7 hari untuk user baru
+-- 4. Trigger: otomatis bikin subscription trial 3 hari untuk user baru
 create or replace function create_trial_subscription()
 returns trigger as $$
 begin
   insert into public.subscriptions (user_id, status, trial_ends_at)
-  values (new.id, 'trialing', now() + interval '7 days');
+  values (new.id, 'trialing', now() + interval '3 days');
   return new;
 end;
 $$ language plpgsql security definer set search_path = public;
@@ -80,9 +80,9 @@ create policy "Users can delete own transactions" on transactions
   for delete using (auth.uid() = user_id and has_active_access(auth.uid()));
 
 -- 6. Untuk user yang SUDAH ada sebelum migration ini dijalankan (kalau ada),
--- kasih trial 7 hari juga supaya tidak tiba-tiba terkunci.
+-- kasih trial 3 hari juga supaya tidak tiba-tiba terkunci.
 insert into subscriptions (user_id, status, trial_ends_at)
-select id, 'trialing', now() + interval '7 days'
+select id, 'trialing', now() + interval '3 days'
 from auth.users
 where id not in (select user_id from subscriptions)
 on conflict (user_id) do nothing;

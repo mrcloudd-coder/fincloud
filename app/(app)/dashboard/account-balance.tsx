@@ -17,7 +17,7 @@ export default function AccountBalanceCharts({ data }: { data: AccountBalanceDat
   return (
     <div className="card p-5">
       <h2 className="text-sm font-medium mb-3">Saldo per rekening</h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="flex gap-3 overflow-x-auto -mx-1 px-1 pb-1" style={{ scrollbarWidth: 'none' }}>
         {data.map((acc) => {
           const remaining = acc.income - acc.expense
           const pct = acc.income > 0 ? Math.min(100, Math.round((acc.expense / acc.income) * 100)) : 0
@@ -30,15 +30,19 @@ export default function AccountBalanceCharts({ data }: { data: AccountBalanceDat
               : [{ name: 'Kosong', value: 1 }]
 
           return (
-            <div key={acc.id} className="flex items-center gap-3 p-3 rounded-lg" style={{ background: 'var(--bg)' }}>
-              <div className="relative w-16 h-16 flex-shrink-0">
+            <div
+              key={acc.id}
+              className="flex-shrink-0 w-[104px] rounded-xl p-3 flex flex-col items-center text-center"
+              style={{ background: 'var(--bg)' }}
+            >
+              <div className="relative w-11 h-11 mb-1.5">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
                       data={chartData}
                       dataKey="value"
-                      innerRadius={20}
-                      outerRadius={30}
+                      innerRadius={14}
+                      outerRadius={21}
                       startAngle={90}
                       endAngle={-270}
                       stroke="none"
@@ -55,18 +59,16 @@ export default function AccountBalanceCharts({ data }: { data: AccountBalanceDat
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <Wallet size={16} style={{ color: acc.color }} />
+                  <Wallet size={13} style={{ color: acc.color }} />
                 </div>
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium truncate">{acc.name}</p>
-                <p className="text-xs" style={{ color: remaining >= 0 ? 'var(--ink-soft)' : 'var(--danger)' }}>
-                  Sisa Rp{remaining.toLocaleString('id-ID')}
-                </p>
-                <p className="text-xs" style={{ color: 'var(--ink-soft)' }}>
-                  {acc.income > 0 ? `${pct}% terpakai` : 'Belum ada pemasukan'}
-                </p>
-              </div>
+              <p className="text-xs font-medium truncate w-full">{acc.name}</p>
+              <p className="text-[11px] font-semibold truncate w-full" style={{ color: remaining >= 0 ? 'var(--ink)' : 'var(--danger)' }}>
+                Rp{remaining.toLocaleString('id-ID')}
+              </p>
+              <p className="text-[10px]" style={{ color: 'var(--ink-soft)' }}>
+                {acc.income > 0 ? `${pct}% terpakai` : 'Belum ada dana'}
+              </p>
             </div>
           )
         })}

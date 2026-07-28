@@ -10,7 +10,7 @@ export type SubscriptionInfo = {
 
 /**
  * Ambil status subscription user dan tentukan apakah dia punya akses penuh
- * (masih dalam masa trial 7 hari ATAU subscription-nya aktif).
+ * (masih dalam masa trial 3 hari ATAU subscription-nya aktif).
  */
 export async function getSubscriptionInfo(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

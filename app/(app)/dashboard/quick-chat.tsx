@@ -123,9 +123,20 @@ export default function QuickChat({
   const total = pending?.reduce((sum, t) => sum + (Number(t.jumlah) || 0), 0) ?? 0
 
   return (
-    <div className="card p-5">
-      <h2 className="text-sm font-medium mb-1">Catat pengeluaran</h2>
-      <p className="text-xs mb-3" style={{ color: 'var(--ink-soft)' }}>
+    <div
+      className="rounded-2xl p-5"
+      style={{ background: 'var(--surface)', border: '1.5px solid var(--primary)', boxShadow: '0 4px 20px -6px rgba(15,102,80,0.25)' }}
+    >
+      <div className="flex items-center gap-2 mb-1">
+        <span
+          className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
+          style={{ background: 'var(--primary)' }}
+        >
+          <Send size={13} color="white" />
+        </span>
+        <h2 className="text-sm font-semibold">Catat pengeluaran</h2>
+      </div>
+      <p className="text-xs mb-3 ml-9" style={{ color: 'var(--ink-soft)' }}>
         Pilih rekening sumber dana dulu, baru catat pengeluaranmu.
       </p>
 
