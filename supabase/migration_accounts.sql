@@ -44,8 +44,10 @@ begin
     (new.id, 'Lainnya', '#6b7280', true);
 
   insert into public.accounts (user_id, name, color, is_default) values
-    (new.id, 'Kas/Tunai', '#0f6650', true),
-    (new.id, 'Rekening Utama', '#3b82f6', true);
+    (new.id, 'Cash', '#0f6650', true),
+    (new.id, 'BCA', '#2563eb', true),
+    (new.id, 'BRI', '#0891b2', true),
+    (new.id, 'DANA', '#a855f7', true);
 
   return new;
 end;
@@ -55,7 +57,7 @@ $$ language plpgsql security definer set search_path = public;
 --    berlaku untuk user baru), buatkan 2 rekening default untuk mereka juga.
 --    Aman dijalankan berulang, tidak akan duplikat.
 insert into accounts (user_id, name, color, is_default)
-select u.id, 'Kas/Tunai', '#0f6650', true
+select u.id, 'Cash', '#0f6650', true
 from auth.users u
 where not exists (
   select 1 from accounts a where a.user_id = u.id
