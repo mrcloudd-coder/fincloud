@@ -15,7 +15,7 @@ export default function AccountBalanceCharts({ data }: { data: AccountBalanceDat
   if (data.length === 0) return null
 
   return (
-    <div className="card p-5">
+    <div>
       <h2 className="text-sm font-medium mb-3">Saldo per rekening</h2>
       <div className="flex gap-3 overflow-x-auto -mx-1 px-1 pb-1" style={{ scrollbarWidth: 'none' }}>
         {data.map((acc) => {

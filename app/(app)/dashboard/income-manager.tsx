@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { Plus, Pencil, Trash2, Check, X } from 'lucide-react'
+import { Plus, Pencil, Trash2, Check, X, ChevronDown, ChevronUp } from 'lucide-react'
 
 type IncomeRow = { id: string; amount: number; source: string; date: string; account_id: string | null }
 type Account = { id: string; name: string; color: string }
@@ -16,6 +16,7 @@ export default function IncomeManager({
   accounts: Account[]
 }) {
   const [showForm, setShowForm] = useState(false)
+  const [showList, setShowList] = useState(false)
   const [amount, setAmount] = useState('')
   const [source, setSource] = useState('')
   const [accountId, setAccountId] = useState(accounts[0]?.id ?? '')
@@ -27,6 +28,8 @@ export default function IncomeManager({
   const [editAccountId, setEditAccountId] = useState('')
   const supabase = createClient()
   const router = useRouter()
+
+  const total = incomeList.reduce((sum, r) => sum + Number(r.amount), 0)
 
   function accountName(id: string | null) {
     return accounts.find((a) => a.id === id)?.name ?? 'Tanpa rekening'
@@ -87,10 +90,13 @@ export default function IncomeManager({
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-medium">Pemasukan bulan ini</h2>
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-xs" style={{ color: 'var(--ink-soft)' }}>Pemasukan bulan ini</p>
+          <p className="text-lg font-semibold" style={{ color: 'var(--primary)' }}>Rp{total.toLocaleString('id-ID')}</p>
+        </div>
         <button
-          onClick={() => setShowForm(!showForm)}
+          onClick={() => setShowForm((v) => !v)}
           className="btn-secondary text-xs px-3 py-1.5 flex items-center gap-1 font-medium"
         >
           <Plus size={14} />
@@ -98,8 +104,19 @@ export default function IncomeManager({
         </button>
       </div>
 
+      {incomeList.length > 0 && (
+        <button
+          onClick={() => setShowList((v) => !v)}
+          className="text-xs font-medium mt-2 flex items-center gap-1"
+          style={{ color: 'var(--primary)' }}
+        >
+          {showList ? 'Sembunyikan detail' : `Lihat detail (${incomeList.length})`}
+          {showList ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+        </button>
+      )}
+
       {showForm && (
-        <form onSubmit={handleAddIncome} className="flex flex-col gap-2 mb-3 p-3 rounded-lg" style={{ background: 'var(--bg)' }}>
+        <form onSubmit={handleAddIncome} className="flex flex-col gap-2 mt-3 p-3 rounded-lg" style={{ background: 'var(--bg)' }}>
           <select
             value={accountId}
             onChange={(e) => setAccountId(e.target.value)}
@@ -132,12 +149,8 @@ export default function IncomeManager({
         </form>
       )}
 
-      {incomeList.length === 0 ? (
-        <p className="text-sm py-4 text-center" style={{ color: 'var(--ink-soft)' }}>
-          Belum ada pemasukan bulan ini
-        </p>
-      ) : (
-        <div className="space-y-2">
+      {showList && incomeList.length > 0 && (
+        <div className="space-y-2 mt-3">
           {incomeList.map((row) => (
             <div key={row.id} className="flex items-center gap-2 p-2.5 rounded-lg text-sm" style={{ background: 'var(--bg)' }}>
               {editingId === row.id ? (

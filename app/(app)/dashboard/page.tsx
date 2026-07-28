@@ -153,13 +153,16 @@ export default async function DashboardPage() {
       </div>
 
       <div className="mb-4">
-        <div className="card p-5">
-          <IncomeManager incomeList={income ?? []} accounts={accounts ?? []} />
-        </div>
+        <ExpenseCalendar dailyTotals={dailyTotals} year={now.getFullYear()} month={now.getMonth()} />
       </div>
 
-      <div className="mb-4">
-        <AccountBalanceCharts data={accountBalanceData} />
+      <div className="card p-5 mb-4">
+        <IncomeManager incomeList={income ?? []} accounts={accounts ?? []} />
+        {(accounts ?? []).length > 0 && (
+          <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
+            <AccountBalanceCharts data={accountBalanceData} />
+          </div>
+        )}
       </div>
 
       <div className="mb-4">
@@ -168,10 +171,6 @@ export default async function DashboardPage() {
           totalIncome={totalIncome}
           totalExpense={totalExpense}
         />
-      </div>
-
-      <div className="mb-4">
-        <ExpenseCalendar dailyTotals={dailyTotals} year={now.getFullYear()} month={now.getMonth()} />
       </div>
 
       <div className="mb-6">
