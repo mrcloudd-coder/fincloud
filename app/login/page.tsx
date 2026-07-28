@@ -6,6 +6,21 @@ import { createClient } from '@/lib/supabase/client'
 
 type Mode = 'login' | 'signup' | 'signup_otp' | 'forgot' | 'forgot_otp'
 
+function describeError(err: unknown): string {
+  if (err && typeof err === 'object' && 'message' in err) {
+    const msg = (err as { message?: unknown }).message
+    // Kadang Supabase membalas body JSON yang rusak/kosong (misal kalau ada
+    // error di sisi server saat proses kirim email), dan library-nya jatuh
+    // ke fallback berupa string JSON mentah seperti "{}" atau "[]" — itu
+    // bukan pesan yang berguna buat user, jadi kita saring juga.
+    if (typeof msg === 'string' && msg.trim() && !/^[[{].{0,3}[\]}]$/.test(msg.trim())) {
+      return msg
+    }
+  }
+  console.error('Auth error:', err)
+  return 'Gagal mengirim email. Kemungkinan ada masalah di setup SMTP atau template email — cek Supabase Dashboard > Logs > Auth Logs untuk detailnya.'
+}
+
 export default function LoginPage() {
   const [mode, setMode] = useState<Mode>('login')
   const [email, setEmail] = useState('')
@@ -36,7 +51,7 @@ export default function LoginPage() {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     setLoading(false)
     if (error) {
-      setError(error.message)
+      setError(describeError(error))
     } else {
       router.push('/dashboard')
       router.refresh()
@@ -51,7 +66,7 @@ export default function LoginPage() {
     const { error } = await supabase.auth.signUp({ email, password })
     setLoading(false)
     if (error) {
-      setError(error.message)
+      setError(describeError(error))
     } else {
       setOtp('')
       setMode('signup_otp')
@@ -80,7 +95,7 @@ export default function LoginPage() {
     const { error } = await supabase.auth.resend({ type: 'signup', email })
     setLoading(false)
     if (error) {
-      setError(error.message)
+      setError(describeError(error))
     } else {
       setInfo('Kode baru sudah dikirim.')
     }
@@ -94,7 +109,7 @@ export default function LoginPage() {
     const { error } = await supabase.auth.resetPasswordForEmail(email)
     setLoading(false)
     if (error) {
-      setError(error.message)
+      setError(describeError(error))
     } else {
       setOtp('')
       setNewPassword('')
@@ -129,7 +144,7 @@ export default function LoginPage() {
     const { error: updateErr } = await supabase.auth.updateUser({ password: newPassword })
     setLoading(false)
     if (updateErr) {
-      setError(updateErr.message)
+      setError(describeError(updateErr))
       return
     }
 
@@ -143,7 +158,7 @@ export default function LoginPage() {
     const { error } = await supabase.auth.resetPasswordForEmail(email)
     setLoading(false)
     if (error) {
-      setError(error.message)
+      setError(describeError(error))
     } else {
       setInfo('Kode baru sudah dikirim.')
     }
