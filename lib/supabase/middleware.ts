@@ -30,7 +30,8 @@ export async function updateSession(request: NextRequest) {
   const isAuthPage = request.nextUrl.pathname.startsWith('/login')
   const isAuthCallback = request.nextUrl.pathname.startsWith('/auth')
   const isApiRoute = request.nextUrl.pathname.startsWith('/api')
-  const isPublic = isAuthPage || isAuthCallback || isApiRoute || request.nextUrl.pathname === '/'
+  const isSignupConfirmed = request.nextUrl.pathname.startsWith('/signup-confirmed')
+  const isPublic = isAuthPage || isAuthCallback || isApiRoute || isSignupConfirmed || request.nextUrl.pathname === '/'
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone()

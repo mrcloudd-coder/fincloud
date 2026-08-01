@@ -41,7 +41,13 @@ export default function LoginPage() {
         router.refresh()
       }
     } else if (mode === 'signup') {
-      const { error } = await supabase.auth.signUp({ email, password })
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/signup-confirmed`,
+        },
+      })
       if (error) {
         setError(error.message)
       } else {
