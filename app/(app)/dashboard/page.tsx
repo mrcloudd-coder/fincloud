@@ -5,11 +5,21 @@ import QuickChat from './quick-chat'
 import AnnualCharts from './annual-charts'
 import ExpenseCalendar from './calendar'
 import AccountBalanceCharts from './account-balance'
+import RangeFilter from './range-filter'
 import Link from 'next/link'
 import { getSubscriptionInfo } from '@/lib/subscription'
 import { Clock, AlertTriangle } from 'lucide-react'
 
-export default async function DashboardPage() {
+const MONTH_NAMES = [
+  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+]
+
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ from?: string }>
+}) {
   const supabase = await createClient()
   const {
     data: { user },
@@ -18,24 +28,43 @@ export default async function DashboardPage() {
   if (!user) return null
 
   const subscription = await getSubscriptionInfo(supabase, user.id)
+  const params = await searchParams
 
   const now = new Date()
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
   const yearStart = `${now.getFullYear()}-01-01`
   const yearEnd = `${now.getFullYear()}-12-31`
 
-  const MONTH_NAMES = [
-    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
-  ]
+  // Rentang buat "Transaksi Terbaru" + chart kategori: default bulan ini,
+  // atau dari bulan yang dipilih user sampai sekarang.
+  let rangeStart = startOfMonth
+  let rangeLabel = `${MONTH_NAMES[now.getMonth()]} ${now.getFullYear()}`
+  if (params.from) {
+    const [y, m] = params.from.split('-').map(Number)
+    rangeStart = new Date(y, m - 1, 1).toISOString().slice(0, 10)
+    rangeLabel = `${MONTH_NAMES[m - 1]} ${y} - sekarang`
+  }
 
-  const [{ data: income }, { data: transactions }, { data: categories }, { data: accounts }, { data: yearTransactions }, { data: yearIncome }] = await Promise.all([
-    supabase.from('income').select('id, amount, source, date, account_id').eq('user_id', user.id).gte('date', startOfMonth).order('date', { ascending: false }),
+  const [
+    { data: allIncome },
+    { data: allTransactions },
+    { data: rangeIncome },
+    { data: rangeTransactions },
+    { data: categories },
+    { data: accounts },
+    { data: yearTransactions },
+    { data: yearIncome },
+  ] = await Promise.all([
+    // All-time — buat kartu saldo & saldo per rekening
+    supabase.from('income').select('id, amount, source, date, account_id').eq('user_id', user.id).order('date', { ascending: false }),
+    supabase.from('transactions').select('id, amount, date, account_id').eq('user_id', user.id),
+    // Rentang terpilih — buat budget bulan ini (income) + tabel & chart kategori
+    supabase.from('income').select('amount, date').eq('user_id', user.id).gte('date', startOfMonth),
     supabase
       .from('transactions')
       .select('id, item, amount, date, account_id, category:categories(name, color)')
       .eq('user_id', user.id)
-      .gte('date', startOfMonth)
+      .gte('date', rangeStart)
       .order('date', { ascending: false })
       .order('created_at', { ascending: false }),
     supabase.from('categories').select('id, name').order('name'),
@@ -58,12 +87,20 @@ export default async function DashboardPage() {
     Pengeluaran: monthlyExpense[i],
   }))
 
-  const totalIncome = (income ?? []).reduce((sum, i) => sum + Number(i.amount), 0)
-  const totalExpense = (transactions ?? []).reduce((sum, t) => sum + Number(t.amount), 0)
+  // Saldo all-time (nggak reset tiap bulan)
+  const totalIncome = (allIncome ?? []).reduce((sum, i) => sum + Number(i.amount), 0)
+  const totalExpense = (allTransactions ?? []).reduce((sum, t) => sum + Number(t.amount), 0)
   const remaining = totalIncome - totalExpense
 
+  // Budget bulan ini (selalu per-bulan, nggak ikut filter rentang)
+  const thisMonthIncome = (rangeIncome ?? []).reduce((sum, i) => sum + Number(i.amount), 0)
+  const thisMonthExpense = (rangeTransactions ?? [])
+    .filter((t) => t.date >= startOfMonth)
+    .reduce((sum, t) => sum + Number(t.amount), 0)
+
+  // Chart kategori & tabel riwayat — ikut filter rentang
   const byCategory: Record<string, { name: string; value: number; color: string }> = {}
-  for (const t of transactions ?? []) {
+  for (const t of rangeTransactions ?? []) {
     const cat = Array.isArray(t.category) ? t.category[0] : t.category
     const name = cat?.name ?? 'Lainnya'
     const color = cat?.color ?? '#6b7280'
@@ -71,19 +108,22 @@ export default async function DashboardPage() {
     byCategory[name].value += Number(t.amount)
   }
 
+  // Kalender selalu bulan berjalan
   const dailyTotals: Record<string, number> = {}
-  for (const t of transactions ?? []) {
-    dailyTotals[t.date] = (dailyTotals[t.date] ?? 0) + Number(t.amount)
+  for (const t of rangeTransactions ?? []) {
+    if (t.date >= startOfMonth) {
+      dailyTotals[t.date] = (dailyTotals[t.date] ?? 0) + Number(t.amount)
+    }
   }
 
-  // Agregasi saldo per rekening (pemasukan & pengeluaran bulan ini)
+  // Saldo per rekening — all-time
   const accountBalanceData = (accounts ?? []).map((acc) => {
-    const accIncome = (income ?? []).filter((i) => i.account_id === acc.id).reduce((sum, i) => sum + Number(i.amount), 0)
-    const accExpense = (transactions ?? []).filter((t) => t.account_id === acc.id).reduce((sum, t) => sum + Number(t.amount), 0)
+    const accIncome = (allIncome ?? []).filter((i) => i.account_id === acc.id).reduce((sum, i) => sum + Number(i.amount), 0)
+    const accExpense = (allTransactions ?? []).filter((t) => t.account_id === acc.id).reduce((sum, t) => sum + Number(t.amount), 0)
     return { id: acc.id, name: acc.name, color: acc.color, income: accIncome, expense: accExpense }
   })
 
-  const previewRows = (transactions ?? []).slice(0, 15)
+  const previewRows = (rangeTransactions ?? []).slice(0, 15)
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
@@ -131,7 +171,7 @@ export default async function DashboardPage() {
           style={{ width: 180, height: 180, top: -60, right: -60, background: 'rgba(255,255,255,0.06)' }}
         />
         <p className="text-xs font-medium mb-1 relative" style={{ color: 'rgba(255,255,255,0.7)' }}>
-          Sisa saldo
+          Sisa saldo (total)
         </p>
         <p className="text-4xl font-bold text-white tracking-tight relative">
           Rp{remaining.toLocaleString('id-ID')}
@@ -157,7 +197,7 @@ export default async function DashboardPage() {
       </div>
 
       <div className="card p-5 mb-4">
-        <IncomeManager incomeList={income ?? []} accounts={accounts ?? []} />
+        <IncomeManager incomeList={allIncome ?? []} accounts={accounts ?? []} />
         {(accounts ?? []).length > 0 && (
           <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
             <AccountBalanceCharts data={accountBalanceData} />
@@ -168,8 +208,9 @@ export default async function DashboardPage() {
       <div className="mb-4">
         <DashboardCharts
           categoryData={Object.values(byCategory)}
-          totalIncome={totalIncome}
-          totalExpense={totalExpense}
+          monthlyIncome={thisMonthIncome}
+          monthlyExpense={thisMonthExpense}
+          rangeLabel={rangeLabel}
         />
       </div>
 
@@ -178,15 +219,18 @@ export default async function DashboardPage() {
       </div>
 
       <div className="card p-5">
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <h2 className="text-sm font-medium">Transaksi terbaru</h2>
-          <Link href="/transactions" className="text-xs font-medium" style={{ color: 'var(--primary)' }}>
-            Lihat semua riwayat →
-          </Link>
+          <div className="flex items-center gap-2">
+            <RangeFilter selected={params.from ?? null} />
+            <Link href="/transactions" className="text-xs font-medium whitespace-nowrap" style={{ color: 'var(--primary)' }}>
+              Lihat semua →
+            </Link>
+          </div>
         </div>
         {previewRows.length === 0 ? (
           <p className="text-sm py-6 text-center" style={{ color: 'var(--ink-soft)' }}>
-            Belum ada transaksi bulan ini
+            Belum ada transaksi di periode ini
           </p>
         ) : (
           <div className="overflow-x-auto">

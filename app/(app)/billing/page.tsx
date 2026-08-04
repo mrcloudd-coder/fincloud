@@ -1,9 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
-import { getSubscriptionInfo } from '@/lib/subscription'
-import BillingCard from './billing-card'
+import { createAdminClient } from '@/lib/supabase/admin'
 import QrisPayment from './qris-payment'
-import Link from 'next/link'
-import { ShieldCheck } from 'lucide-react'
+import AdminPaymentsClient from '../../admin/payments/client'
 
 export default async function BillingPage() {
   const supabase = await createClient()
@@ -13,17 +11,54 @@ export default async function BillingPage() {
 
   if (!user) return null
 
-  const subscription = await getSubscriptionInfo(supabase, user.id)
+  const isAdmin = !!process.env.ADMIN_EMAIL && user.email === process.env.ADMIN_EMAIL
 
+  // === Tampilan ADMIN: langsung ke panel kelola langganan, bukan halaman bayar ===
+  if (isAdmin) {
+    const admin = createAdminClient()
+
+    const { data: requests } = await admin
+      .from('payment_requests')
+      .select('id, user_id, proof_path, status, created_at')
+      .order('created_at', { ascending: false })
+      .limit(50)
+
+    const enriched = await Promise.all(
+      (requests ?? []).map(async (r) => {
+        const [{ data: userData }, { data: signed }] = await Promise.all([
+          admin.auth.admin.getUserById(r.user_id),
+          admin.storage.from('payment-proofs').createSignedUrl(r.proof_path, 600),
+        ])
+        return {
+          id: r.id,
+          status: r.status as 'pending' | 'approved' | 'rejected',
+          createdAt: r.created_at,
+          email: userData.user?.email ?? '(email tidak ditemukan)',
+          proofUrl: signed?.signedUrl ?? null,
+        }
+      })
+    )
+
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-8">
+        <h1 className="text-xl font-semibold mb-1">Kelola Langganan</h1>
+        <p className="text-sm mb-6" style={{ color: 'var(--ink-soft)' }}>
+          Review bukti transfer dari user, klik Aktifkan buat langsung aktifin langganan mereka.
+        </p>
+
+        <AdminPaymentsClient requests={enriched} />
+      </div>
+    )
+  }
+
+  // === Tampilan USER BIASA: halaman bayar seperti biasa ===
   const { data: pendingRequest } = await supabase
     .from('payment_requests')
-    .select('id, status, created_at')
+    .select('id, status, created_at, user_notified')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()
-
-  const isAdmin = !!process.env.ADMIN_EMAIL && user.email === process.env.ADMIN_EMAIL
 
   return (
     <div className="max-w-lg mx-auto px-4 py-8">
@@ -32,29 +67,7 @@ export default async function BillingPage() {
         Kelola status langganan FinCloud kamu.
       </p>
 
-      <div className="flex flex-col gap-4">
-        <QrisPayment pendingRequest={pendingRequest ?? null} />
-
-        <details className="card p-5">
-          <summary className="text-sm font-medium cursor-pointer" style={{ color: 'var(--ink-soft)' }}>
-            Atau bayar otomatis pakai kartu/e-wallet
-          </summary>
-          <div className="mt-4">
-            <BillingCard subscription={subscription} />
-          </div>
-        </details>
-
-        {isAdmin && (
-          <Link
-            href="/admin/payments"
-            className="flex items-center gap-2 text-xs font-medium justify-center py-2"
-            style={{ color: 'var(--ink-soft)' }}
-          >
-            <ShieldCheck size={14} />
-            Kelola konfirmasi pembayaran (admin)
-          </Link>
-        )}
-      </div>
+      <QrisPayment pendingRequest={pendingRequest ?? null} />
     </div>
   )
 }

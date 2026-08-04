@@ -22,7 +22,7 @@ export async function POST(request: Request) {
 
   const { data: paymentRequest, error: fetchErr } = await admin
     .from('payment_requests')
-    .select('id, user_id, status')
+    .select('id, status')
     .eq('id', requestId)
     .single()
 
@@ -33,19 +33,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Permintaan ini sudah pernah diproses' }, { status: 400 })
   }
 
-  const currentPeriodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-
-  const { error: subErr } = await admin.from('subscriptions').upsert({
-    user_id: paymentRequest.user_id,
-    status: 'active',
-    current_period_end: currentPeriodEnd,
-    midtrans_order_id: `QRIS-${Date.now()}`,
-  })
-
-  if (subErr) {
-    return NextResponse.json({ error: 'Gagal mengaktifkan langganan: ' + subErr.message }, { status: 500 })
-  }
-
+  // Subscription-nya UDAH aktif dari sejak user upload bukti (Optimistic Activation),
+  // jadi di sini tinggal konfirmasi statusnya doang, tidak perlu ubah subscriptions lagi.
   const { error: updateErr } = await admin
     .from('payment_requests')
     .update({ status: 'approved', reviewed_at: new Date().toISOString() })

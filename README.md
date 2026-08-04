@@ -171,3 +171,26 @@ Setelah yakin semua jalan lancar, dan akun Midtrans kamu sudah diverifikasi untu
 Production: ganti `MIDTRANS_SERVER_KEY`/`NEXT_PUBLIC_MIDTRANS_CLIENT_KEY` ke versi
 Production, dan ubah `MIDTRANS_IS_PRODUCTION` + `NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION`
 jadi `true`. Jangan lupa update juga webhook URL di dashboard Midtrans ke mode Production.
+
+## Setup Cron Job Auto-hapus Bukti Transfer
+
+Bukti transfer yang sudah direview (approved/rejected) otomatis dihapus TOTAL
+(foto + data) 7 hari setelah direview, lewat Vercel Cron Job.
+
+1. Cron sudah dikonfigurasi di `vercel.json`, jalan otomatis tiap hari jam 18:00 UTC (01:00 WIB)
+2. Tambahkan environment variable `CRON_SECRET` di Vercel — isi string acak bebas (misal hasil generate password acak), dipakai buat melindungi endpoint ini supaya tidak bisa dipanggil sembarang orang
+3. Vercel otomatis mengirim header `Authorization: Bearer <CRON_SECRET>` saat memanggil cron — tidak perlu setup tambahan lain
+
+## Halaman Legal
+
+Kebijakan Privasi & Syarat Ketentuan ada di `/legal`, linknya muncul di halaman
+login/daftar. User wajib centang checkbox persetujuan sebelum bisa mendaftar —
+timestamp persetujuan otomatis tersimpan di tabel `user_consents` sebagai bukti.
+
+## Batas Fitur Gratis (Non-Subscriber)
+
+- Maksimal 3 rekening custom (di luar rekening default)
+- Maksimal 5 kategori custom (di luar kategori default)
+- Chat 1x/hari, maksimal 8 kata per chat
+
+Semua ini di-enforce di level database (trigger), jadi tidak bisa diakalin lewat developer tools.

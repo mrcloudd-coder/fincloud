@@ -6,30 +6,32 @@ type CategoryDatum = { name: string; value: number; color: string }
 
 export default function DashboardCharts({
   categoryData,
-  totalIncome,
-  totalExpense,
+  monthlyIncome,
+  monthlyExpense,
+  rangeLabel,
 }: {
   categoryData: CategoryDatum[]
-  totalIncome: number
-  totalExpense: number
+  monthlyIncome: number
+  monthlyExpense: number
+  rangeLabel: string
 }) {
-  const pct = totalIncome > 0 ? Math.min(100, Math.round((totalExpense / totalIncome) * 100)) : 0
+  const pct = monthlyIncome > 0 ? Math.min(100, Math.round((monthlyExpense / monthlyIncome) * 100)) : 0
   const sorted = [...categoryData].sort((a, b) => b.value - a.value)
 
   return (
     <div className="card p-5">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-medium">Pengeluaran per kategori</h2>
-        {totalIncome > 0 && (
+        <h2 className="text-sm font-medium">Pengeluaran per kategori — {rangeLabel}</h2>
+        {monthlyIncome > 0 && (
           <span className="text-xs font-medium" style={{ color: pct >= 90 ? 'var(--danger)' : 'var(--primary)' }}>
-            {pct}% budget terpakai
+            {pct}% budget bulan ini
           </span>
         )}
       </div>
 
       {categoryData.length === 0 ? (
         <p className="text-sm py-8 text-center" style={{ color: 'var(--ink-soft)' }}>
-          Belum ada pengeluaran bulan ini
+          Belum ada pengeluaran di periode ini
         </p>
       ) : (
         <div className="flex items-center gap-4">
@@ -76,8 +78,8 @@ export default function DashboardCharts({
         />
       </div>
       <p className="text-[11px] mt-1.5" style={{ color: 'var(--ink-soft)' }}>
-        {totalIncome > 0
-          ? `${pct}% dari pemasukan sudah terpakai`
+        {monthlyIncome > 0
+          ? `${pct}% dari pemasukan bulan ini sudah terpakai`
           : 'Tambahkan pemasukan untuk melihat progress budget'}
       </p>
     </div>

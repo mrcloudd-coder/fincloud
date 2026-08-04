@@ -11,6 +11,7 @@ export default function LoginPage() {
   const [mode, setMode] = useState<Mode>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [agreedToTerms, setAgreedToTerms] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
@@ -41,7 +42,13 @@ export default function LoginPage() {
         router.refresh()
       }
     } else if (mode === 'signup') {
-      const { error } = await supabase.auth.signUp({
+      if (!agreedToTerms) {
+        setError('Kamu harus menyetujui Syarat Ketentuan & Kebijakan Privasi dulu.')
+        setLoading(false)
+        return
+      }
+
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -51,6 +58,10 @@ export default function LoginPage() {
       if (error) {
         setError(error.message)
       } else {
+        // Simpan bukti persetujuan (timestamp) sebagai catatan hukum
+        if (data.user) {
+          await supabase.from('user_consents').insert({ user_id: data.user.id, version: 'v1' })
+        }
         setInfo('Akun berhasil dibuat. Silakan cek email untuk konfirmasi, lalu login.')
         setMode('login')
       }
@@ -179,12 +190,35 @@ export default function LoginPage() {
               </button>
             )}
 
+            {mode === 'signup' && (
+              <label className="flex items-start gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={agreedToTerms}
+                  onChange={(e) => setAgreedToTerms(e.target.checked)}
+                  className="mt-0.5 flex-shrink-0"
+                />
+                <span className="text-xs" style={{ color: 'var(--ink-soft)' }}>
+                  Saya sudah membaca dan menyetujui{' '}
+                  <a
+                    href="/legal"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-semibold underline"
+                    style={{ color: 'var(--primary)' }}
+                  >
+                    Syarat Ketentuan dan Kebijakan Privasi
+                  </a>
+                </span>
+              </label>
+            )}
+
             {error && <p className="text-sm" style={{ color: 'var(--danger)' }}>{error}</p>}
             {info && <p className="text-sm" style={{ color: 'var(--primary)' }}>{info}</p>}
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || (mode === 'signup' && !agreedToTerms)}
               className="w-full py-3.5 text-sm font-semibold rounded-xl flex items-center justify-center gap-1.5 text-white"
               style={{ background: 'var(--primary)' }}
             >
@@ -209,6 +243,12 @@ export default function LoginPage() {
               </button>
             )}
           </form>
+
+          <p className="text-center text-[11px] mt-6" style={{ color: 'var(--ink-soft)' }}>
+            <a href="/legal" target="_blank" rel="noopener noreferrer" className="underline">
+              Kebijakan Privasi & Syarat Ketentuan
+            </a>
+          </p>
         </div>
       </div>
     </main>

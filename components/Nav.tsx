@@ -3,22 +3,30 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Home, Tag, List, LogOut, MessageCircleQuestion, CreditCard, Wallet } from 'lucide-react'
+import { Home, Tag, List, LogOut, MessageCircleQuestion, CreditCard, Wallet, ShieldCheck } from 'lucide-react'
 
-const links = [
+const baseLinks = [
   { href: '/dashboard', label: 'Beranda', icon: Home },
   { href: '/accounts', label: 'Rekening', icon: Wallet },
   { href: '/categories', label: 'Kategori', icon: Tag },
   { href: '/transactions', label: 'Riwayat', icon: List },
-  { href: '/billing', label: 'Langganan', icon: CreditCard },
 ]
 
 const TELEGRAM_CONTACT = 'https://t.me/mrclooudd'
 
-export default function Nav() {
+export default function Nav({ isAdmin = false }: { isAdmin?: boolean }) {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
+
+  // Admin: menu "Langganan" berubah jadi "Kelola Langganan" (panel approve/reject).
+  // User biasa: tetap "Langganan" (halaman bayar/status subscription mereka sendiri).
+  const links = [
+    ...baseLinks,
+    isAdmin
+      ? { href: '/billing', label: 'Kelola Langganan', icon: ShieldCheck }
+      : { href: '/billing', label: 'Langganan', icon: CreditCard },
+  ]
 
   async function handleLogout() {
     await supabase.auth.signOut()
@@ -37,6 +45,14 @@ export default function Nav() {
           <span className="text-xs italic" style={{ color: 'var(--ink-soft)' }}>
             by cloud.studio
           </span>
+          {isAdmin && (
+            <span
+              className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+              style={{ background: 'var(--primary)', color: 'white' }}
+            >
+              ADMIN
+            </span>
+          )}
         </div>
         <nav className="flex items-center gap-1">
           {links.map(({ href, label, icon: Icon }) => (

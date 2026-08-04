@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { Plus, Trash2, Pencil, Check, X, Wallet } from 'lucide-react'
+import Link from 'next/link'
+import { Plus, Trash2, Pencil, Check, X, Wallet, Sparkles } from 'lucide-react'
 
 type Account = { id: string; name: string; color: string; is_default: boolean }
 
@@ -42,7 +43,11 @@ export default function AccountsManager({ accounts }: { accounts: Account[] }) {
     })
 
     if (insertErr) {
-      setError('Gagal menambah rekening: ' + insertErr.message)
+      if (insertErr.message.includes('LIMIT_REACHED_ACCOUNTS')) {
+        setError('LIMIT_REACHED')
+      } else {
+        setError('Gagal menambah rekening: ' + insertErr.message)
+      }
       setSaving(false)
       return
     }
@@ -96,7 +101,24 @@ export default function AccountsManager({ accounts }: { accounts: Account[] }) {
             />
           ))}
         </div>
-        {error && <p className="text-sm mt-2" style={{ color: 'var(--danger)' }}>{error}</p>}
+        {error === 'LIMIT_REACHED' ? (
+          <div className="flex items-start gap-3 mt-3 p-3 rounded-xl" style={{ background: '#fff6ec' }}>
+            <Sparkles size={18} style={{ color: 'var(--accent)' }} className="flex-shrink-0" />
+            <div>
+              <p className="text-sm font-semibold" style={{ color: 'var(--accent)' }}>
+                Batas 3 rekening gratis tercapai
+              </p>
+              <p className="text-xs mt-1 mb-2" style={{ color: 'var(--ink-soft)' }}>
+                Upgrade ke Premium buat nambah rekening tanpa batas.
+              </p>
+              <Link href="/billing" className="text-xs font-semibold underline" style={{ color: 'var(--primary)' }}>
+                Lihat Langganan →
+              </Link>
+            </div>
+          </div>
+        ) : (
+          error && <p className="text-sm mt-2" style={{ color: 'var(--danger)' }}>{error}</p>
+        )}
       </form>
 
       <div className="card divide-y" style={{ borderColor: 'var(--border)' }}>
