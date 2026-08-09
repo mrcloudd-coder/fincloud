@@ -26,11 +26,18 @@ export default function QuickChat({
   const [categories, setCategories] = useState<Category[]>(initialCategories)
   const [saving, setSaving] = useState(false)
   const [savedMsg, setSavedMsg] = useState<string | null>(null)
+  const todayStr = new Date().toISOString().slice(0, 10)
+  const [refDate, setRefDate] = useState(todayStr)
+  const [showDatePicker, setShowDatePicker] = useState(false)
   const supabase = createClient()
   const router = useRouter()
 
   const selectedAccount = accounts.find((a) => a.id === accountId)
   const isLocked = !accountId
+  const isCustomDate = refDate !== todayStr
+  const refDateLabel = isCustomDate
+    ? new Date(`${refDate}T00:00:00`).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })
+    : 'Hari ini'
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -44,7 +51,7 @@ export default function QuickChat({
       const res = await fetch('/api/parse-expense', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, referenceDate: refDate }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Gagal memproses chat')
@@ -119,12 +126,12 @@ export default function QuickChat({
     setSavedMsg(`${rows.length} transaksi berhasil disimpan dari ${selectedAccount?.name ?? 'rekening'}.`)
     setPending(null)
     setText('')
+    setRefDate(todayStr)
     setSaving(false)
     router.refresh()
   }
 
   const total = pending?.reduce((sum, t) => sum + (Number(t.jumlah) || 0), 0) ?? 0
-  const todayStr = new Date().toISOString().slice(0, 10)
 
   return (
     <div className="card overflow-hidden">
@@ -168,12 +175,52 @@ export default function QuickChat({
           </select>
 
           {pending && pending.length > 0 ? null : (
-            <div
-              className="flex-1 flex items-center gap-2 px-3.5 py-3 text-sm font-bold rounded-xl"
-              style={{ background: 'var(--accent-soft)', border: '1.5px solid var(--accent)', color: 'var(--accent)' }}
-            >
-              <CalendarDays size={15} />
-              Hari ini
+            <div className="flex-1 relative">
+              <button
+                type="button"
+                onClick={() => setShowDatePicker((v) => !v)}
+                className="w-full flex items-center gap-2 px-3.5 py-3 text-sm font-bold rounded-xl"
+                style={
+                  isCustomDate
+                    ? { background: 'var(--accent)', border: '1.5px solid var(--accent)', color: '#3a2e1c' }
+                    : { background: 'var(--accent-soft)', border: '1.5px solid var(--accent)', color: 'var(--accent)' }
+                }
+              >
+                <CalendarDays size={15} />
+                {refDateLabel}
+              </button>
+
+              {showDatePicker && (
+                <div
+                  className="absolute top-full left-0 mt-1.5 z-20 rounded-xl p-2.5 shadow-lg flex items-center gap-2"
+                  style={{ background: 'var(--surface2)', border: '1px solid var(--border)' }}
+                >
+                  <input
+                    type="date"
+                    value={refDate}
+                    max={todayStr}
+                    onChange={(e) => {
+                      setRefDate(e.target.value || todayStr)
+                      setShowDatePicker(false)
+                    }}
+                    className="text-xs px-2 py-1.5"
+                    autoFocus
+                  />
+                  {isCustomDate && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRefDate(todayStr)
+                        setShowDatePicker(false)
+                      }}
+                      className="text-[11px] font-semibold whitespace-nowrap px-2 py-1.5 rounded-lg"
+                      style={{ background: 'var(--primary-soft)', color: 'var(--primary)' }}
+                    >
+                      Hari ini
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -184,7 +231,11 @@ export default function QuickChat({
           style={{ background: isLocked ? 'var(--bg)' : 'linear-gradient(160deg, #1c1730 0%, #221b38 100%)', border: isLocked ? '1.5px dashed var(--border)' : '1.5px solid var(--border)' }}
         >
           <p className="text-xs font-bold mb-3 relative z-10" style={{ color: isLocked ? 'var(--ink-soft)' : 'var(--accent)' }}>
-            {isLocked ? '🔒 Pilih rekening dulu buat mulai catat' : '💬 Tulis pengeluaranmu, sedetail atau sesantai apapun'}
+            {isLocked
+              ? '🔒 Pilih rekening dulu buat mulai catat'
+              : isCustomDate
+              ? `📅 Mode catat buat tanggal ${refDateLabel} — bukan hari ini`
+              : '💬 Tulis pengeluaranmu, sedetail atau sesantai apapun'}
           </p>
 
           <form onSubmit={handleSubmit} className="flex items-center gap-3 relative z-10">

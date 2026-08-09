@@ -12,7 +12,7 @@ const MONTH_NAMES = [
 export default async function TransactionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ year?: string; month?: string }>
+  searchParams: Promise<{ year?: string; month?: string; date?: string }>
 }) {
   const supabase = await createClient()
   const {
@@ -25,11 +25,17 @@ export default async function TransactionsPage({
 
   const params = await searchParams
   const now = new Date()
-  const selectedYear = Number(params.year) || now.getFullYear()
-  const selectedMonth = Number(params.month) || now.getMonth() + 1
 
-  const startDate = new Date(selectedYear, selectedMonth - 1, 1).toISOString().slice(0, 10)
-  const endDate = new Date(selectedYear, selectedMonth, 0).toISOString().slice(0, 10)
+  // Kalau ada param "date" (dari klik tanggal di kalender Beranda),
+  // filter cuma ke tanggal itu doang, bukan sebulan penuh.
+  const dateFilter = params.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date : null
+
+  const [dfYear, dfMonth] = dateFilter ? dateFilter.split('-').map(Number) : [null, null]
+  const selectedYear = Number(params.year) || dfYear || now.getFullYear()
+  const selectedMonth = Number(params.month) || dfMonth || now.getMonth() + 1
+
+  const startDate = dateFilter ?? new Date(selectedYear, selectedMonth - 1, 1).toISOString().slice(0, 10)
+  const endDate = dateFilter ?? new Date(selectedYear, selectedMonth, 0).toISOString().slice(0, 10)
 
   const [{ data: transactions }, { data: categories }, { data: accounts }] = await Promise.all([
     supabase
@@ -46,6 +52,10 @@ export default async function TransactionsPage({
 
   // Pilihan tahun: 4 tahun ke belakang sampai tahun sekarang
   const yearOptions = Array.from({ length: 5 }).map((_, i) => now.getFullYear() - i)
+
+  const dateFilterLabel = dateFilter
+    ? new Date(`${dateFilter}T00:00:00`).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+    : null
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
@@ -65,6 +75,24 @@ export default async function TransactionsPage({
             Langganan tidak aktif — edit, hapus, dan export dinonaktifkan. Klik untuk berlangganan.
           </p>
         </Link>
+      )}
+
+      {dateFilterLabel && (
+        <div
+          className="flex items-center justify-between mb-4 p-3.5 rounded-xl"
+          style={{ background: 'var(--primary-soft)' }}
+        >
+          <p className="text-sm font-medium" style={{ color: 'var(--primary)' }}>
+            Menampilkan transaksi tanggal {dateFilterLabel}
+          </p>
+          <Link
+            href={`/transactions?year=${selectedYear}&month=${selectedMonth}`}
+            className="text-xs font-semibold px-3 py-1.5 rounded-lg whitespace-nowrap"
+            style={{ background: 'var(--surface)', color: 'var(--primary)' }}
+          >
+            Lihat semua bulan ini
+          </Link>
+        </div>
       )}
 
       <TransactionsTable

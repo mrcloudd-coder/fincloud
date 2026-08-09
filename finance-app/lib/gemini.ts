@@ -41,15 +41,17 @@ function getApiKeys(): string[] {
  */
 export async function parseExpenseChat(
   chatText: string,
-  existingCategories: string[]
+  existingCategories: string[],
+  referenceDate?: string
 ): Promise<ParsedTransaction[]> {
   const apiKeys = getApiKeys()
   if (apiKeys.length === 0) {
     throw new Error('Belum ada GEMINI_API_KEY / GEMINI_API_KEYS di environment variables')
   }
 
-  const todayStr = new Date().toISOString().slice(0, 10)
-  const todayLabel = new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/
+  const todayStr = referenceDate && dateRegex.test(referenceDate) ? referenceDate : new Date().toISOString().slice(0, 10)
+  const todayLabel = new Date(`${todayStr}T00:00:00`).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 
   const systemPrompt = `Kamu adalah asisten pencatat keuangan. Tugasmu adalah membaca chat berbahasa Indonesia (termasuk bahasa gaul/sehari-hari) dari user tentang pengeluaran mereka, lalu mengubahnya menjadi daftar transaksi terstruktur dalam format JSON.
 
@@ -171,8 +173,6 @@ Format output:
   if (!Array.isArray(parsed)) {
     throw new Error('Format hasil parsing tidak sesuai')
   }
-
-  const dateRegex = /^\d{4}-\d{2}-\d{2}$/
 
   return parsed
     .filter((t) => t.item && t.kategori && typeof t.jumlah === 'number' && t.jumlah > 0)
