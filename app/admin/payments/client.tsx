@@ -118,7 +118,7 @@ export default function AdminPaymentsClient({ requests }: { requests: Request[] 
                     Aktif
                   </span>
                 ) : (
-                  <span className="text-xs px-2 py-1 rounded-full flex items-center gap-1" style={{ background: '#fdeeee', color: 'var(--danger)' }}>
+                  <span className="text-xs px-2 py-1 rounded-full flex items-center gap-1" style={{ background: 'var(--danger-soft)', color: 'var(--danger)' }}>
                     <XCircle size={12} />
                     Ditolak
                   </span>

@@ -3,8 +3,7 @@ import DashboardCharts from './charts'
 import IncomeManager from './income-manager'
 import QuickChat from './quick-chat'
 import AnnualCharts from './annual-charts'
-import ExpenseCalendar from './calendar'
-import AccountBalanceCharts from './account-balance'
+import SummaryCalendarCard from './summary-calendar-card'
 import RangeFilter from './range-filter'
 import Link from 'next/link'
 import { getSubscriptionInfo } from '@/lib/subscription'
@@ -18,7 +17,7 @@ const MONTH_NAMES = [
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string }>
+  searchParams: Promise<{ from?: string; viewMonth?: string }>
 }) {
   const supabase = await createClient()
   const {
@@ -35,6 +34,19 @@ export default async function DashboardPage({
   const yearStart = `${now.getFullYear()}-01-01`
   const yearEnd = `${now.getFullYear()}-12-31`
 
+  // ==== Bulan yang lagi "dibuka" di kartu kalender ====
+  // Kalau nggak ada param viewMonth, dianggap mode akumulasi & kalender nampilin bulan sekarang.
+  const isAccumulated = !params.viewMonth
+  let viewedYear = now.getFullYear()
+  let viewedMonth = now.getMonth() // 0-indexed
+  if (params.viewMonth) {
+    const [vy, vm] = params.viewMonth.split('-').map(Number)
+    viewedYear = vy
+    viewedMonth = vm - 1
+  }
+  const viewedMonthStart = new Date(viewedYear, viewedMonth, 1).toISOString().slice(0, 10)
+  const viewedMonthEnd = new Date(viewedYear, viewedMonth + 1, 0).toISOString().slice(0, 10)
+
   // Rentang buat "Transaksi Terbaru" + chart kategori: default bulan ini,
   // atau dari bulan yang dipilih user sampai sekarang.
   let rangeStart = startOfMonth
@@ -48,6 +60,8 @@ export default async function DashboardPage({
   const [
     { data: allIncome },
     { data: allTransactions },
+    { data: viewedIncome },
+    { data: viewedTransactions },
     { data: rangeIncome },
     { data: rangeTransactions },
     { data: categories },
@@ -55,10 +69,13 @@ export default async function DashboardPage({
     { data: yearTransactions },
     { data: yearIncome },
   ] = await Promise.all([
-    // All-time — buat kartu saldo & saldo per rekening
+    // All-time — buat mode akumulasi
     supabase.from('income').select('id, amount, source, date, account_id').eq('user_id', user.id).order('date', { ascending: false }),
     supabase.from('transactions').select('id, amount, date, account_id').eq('user_id', user.id),
-    // Rentang terpilih — buat budget bulan ini (income) + tabel & chart kategori
+    // Data bulan yang lagi dibuka di kalender — buat mode bulan spesifik + titik kalender
+    supabase.from('income').select('amount, date, account_id').eq('user_id', user.id).gte('date', viewedMonthStart).lte('date', viewedMonthEnd),
+    supabase.from('transactions').select('amount, date, account_id').eq('user_id', user.id).gte('date', viewedMonthStart).lte('date', viewedMonthEnd),
+    // Rentang terpilih (fitur RangeFilter terpisah) — buat budget bulan ini (income) + tabel & chart kategori
     supabase.from('income').select('amount, date').eq('user_id', user.id).gte('date', startOfMonth),
     supabase
       .from('transactions')
@@ -87,18 +104,46 @@ export default async function DashboardPage({
     Pengeluaran: monthlyExpense[i],
   }))
 
-  // Saldo all-time (nggak reset tiap bulan)
-  const totalIncome = (allIncome ?? []).reduce((sum, i) => sum + Number(i.amount), 0)
-  const totalExpense = (allTransactions ?? []).reduce((sum, t) => sum + Number(t.amount), 0)
-  const remaining = totalIncome - totalExpense
+  // Saldo all-time (mode akumulasi)
+  const totalIncomeAllTime = (allIncome ?? []).reduce((sum, i) => sum + Number(i.amount), 0)
+  const totalExpenseAllTime = (allTransactions ?? []).reduce((sum, t) => sum + Number(t.amount), 0)
 
-  // Budget bulan ini (selalu per-bulan, nggak ikut filter rentang)
+  // Saldo khusus bulan yang lagi dibuka (mode bulan spesifik)
+  const totalIncomeViewed = (viewedIncome ?? []).reduce((sum, i) => sum + Number(i.amount), 0)
+  const totalExpenseViewed = (viewedTransactions ?? []).reduce((sum, t) => sum + Number(t.amount), 0)
+
+  // Kartu kalender pakai salah satu tergantung mode
+  const summaryMetrics = isAccumulated
+    ? { saldo: totalIncomeAllTime - totalExpenseAllTime, pemasukan: totalIncomeAllTime, pengeluaran: totalExpenseAllTime }
+    : { saldo: totalIncomeViewed - totalExpenseViewed, pemasukan: totalIncomeViewed, pengeluaran: totalExpenseViewed }
+
+  // Saldo per rekening — ikut mode yang sama
+  const accountBalances = (accounts ?? []).map((acc) => {
+    if (isAccumulated) {
+      const accIncome = (allIncome ?? []).filter((i) => i.account_id === acc.id).reduce((sum, i) => sum + Number(i.amount), 0)
+      const accExpense = (allTransactions ?? []).filter((t) => t.account_id === acc.id).reduce((sum, t) => sum + Number(t.amount), 0)
+      return { id: acc.id, name: acc.name, color: acc.color, balance: accIncome - accExpense }
+    }
+    const accIncome = (viewedIncome ?? []).filter((i) => i.account_id === acc.id).reduce((sum, i) => sum + Number(i.amount), 0)
+    const accExpense = (viewedTransactions ?? []).filter((t) => t.account_id === acc.id).reduce((sum, t) => sum + Number(t.amount), 0)
+    return { id: acc.id, name: acc.name, color: acc.color, balance: accIncome - accExpense }
+  })
+
+  // Titik pengeluaran di grid kalender — selalu dari bulan yang lagi dibuka
+  const dailyTotals: Record<string, number> = {}
+  for (const t of viewedTransactions ?? []) {
+    dailyTotals[t.date] = (dailyTotals[t.date] ?? 0) + Number(t.amount)
+  }
+
+  const yearOptions = Array.from({ length: 5 }).map((_, i) => now.getFullYear() - i)
+
+  // Budget bulan ini (selalu per-bulan, nggak ikut filter rentang RangeFilter)
   const thisMonthIncome = (rangeIncome ?? []).reduce((sum, i) => sum + Number(i.amount), 0)
   const thisMonthExpense = (rangeTransactions ?? [])
     .filter((t) => t.date >= startOfMonth)
     .reduce((sum, t) => sum + Number(t.amount), 0)
 
-  // Chart kategori & tabel riwayat — ikut filter rentang
+  // Chart kategori & tabel riwayat — ikut filter RangeFilter
   const byCategory: Record<string, { name: string; value: number; color: string }> = {}
   for (const t of rangeTransactions ?? []) {
     const cat = Array.isArray(t.category) ? t.category[0] : t.category
@@ -107,21 +152,6 @@ export default async function DashboardPage({
     if (!byCategory[name]) byCategory[name] = { name, value: 0, color }
     byCategory[name].value += Number(t.amount)
   }
-
-  // Kalender selalu bulan berjalan
-  const dailyTotals: Record<string, number> = {}
-  for (const t of rangeTransactions ?? []) {
-    if (t.date >= startOfMonth) {
-      dailyTotals[t.date] = (dailyTotals[t.date] ?? 0) + Number(t.amount)
-    }
-  }
-
-  // Saldo per rekening — all-time
-  const accountBalanceData = (accounts ?? []).map((acc) => {
-    const accIncome = (allIncome ?? []).filter((i) => i.account_id === acc.id).reduce((sum, i) => sum + Number(i.amount), 0)
-    const accExpense = (allTransactions ?? []).filter((t) => t.account_id === acc.id).reduce((sum, t) => sum + Number(t.amount), 0)
-    return { id: acc.id, name: acc.name, color: acc.color, income: accIncome, expense: accExpense }
-  })
 
   const previewRows = (rangeTransactions ?? []).slice(0, 15)
 
@@ -149,7 +179,7 @@ export default async function DashboardPage({
         <Link
           href="/billing"
           className="flex items-center gap-3 mb-6 p-4 rounded-xl"
-          style={{ background: '#fdeeee' }}
+          style={{ background: '#3a1f1e' }}
         >
           <AlertTriangle size={18} style={{ color: 'var(--danger)' }} />
           <p className="text-sm font-medium" style={{ color: 'var(--danger)' }}>
@@ -158,51 +188,24 @@ export default async function DashboardPage({
         </Link>
       )}
 
-      <div
-        className="rounded-2xl p-6 mb-4 relative overflow-hidden"
-        style={{
-          background: remaining >= 0
-            ? 'linear-gradient(135deg, #14785f 0%, #0a4a3a 100%)'
-            : 'linear-gradient(135deg, #c0473f 0%, #7a2c27 100%)',
-        }}
-      >
-        <div
-          className="absolute rounded-full"
-          style={{ width: 180, height: 180, top: -60, right: -60, background: 'rgba(255,255,255,0.06)' }}
+      <div className="mb-4">
+        <SummaryCalendarCard
+          metrics={summaryMetrics}
+          accounts={accountBalances}
+          isAccumulated={isAccumulated}
+          dailyTotals={dailyTotals}
+          viewedYear={viewedYear}
+          viewedMonth={viewedMonth}
+          yearOptions={yearOptions}
         />
-        <p className="text-xs font-medium mb-1 relative" style={{ color: 'rgba(255,255,255,0.7)' }}>
-          Sisa saldo (total)
-        </p>
-        <p className="text-4xl font-bold text-white tracking-tight relative">
-          Rp{remaining.toLocaleString('id-ID')}
-        </p>
-        <div className="flex gap-6 mt-4 pt-4 relative" style={{ borderTop: '1px solid rgba(255,255,255,0.18)' }}>
-          <div>
-            <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.65)' }}>Pemasukan</p>
-            <p className="text-sm font-semibold text-white">Rp{totalIncome.toLocaleString('id-ID')}</p>
-          </div>
-          <div>
-            <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.65)' }}>Pengeluaran</p>
-            <p className="text-sm font-semibold" style={{ color: '#ffd9b8' }}>Rp{totalExpense.toLocaleString('id-ID')}</p>
-          </div>
-        </div>
       </div>
 
       <div className="mb-4">
         <QuickChat categories={categories ?? []} accounts={accounts ?? []} />
       </div>
 
-      <div className="mb-4">
-        <ExpenseCalendar dailyTotals={dailyTotals} year={now.getFullYear()} month={now.getMonth()} />
-      </div>
-
       <div className="card p-5 mb-4">
         <IncomeManager incomeList={allIncome ?? []} accounts={accounts ?? []} />
-        {(accounts ?? []).length > 0 && (
-          <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
-            <AccountBalanceCharts data={accountBalanceData} />
-          </div>
-        )}
       </div>
 
       <div className="mb-4">

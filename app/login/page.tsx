@@ -99,8 +99,8 @@ export default function LoginPage() {
       </div>
 
       <div
-        className="flex-1 bg-white rounded-t-[32px] px-6 pt-8 pb-10 relative"
-        style={{ boxShadow: '0 -8px 30px -12px rgba(0,0,0,0.25)' }}
+        className="flex-1 rounded-t-[32px] px-6 pt-8 pb-10 relative"
+        style={{ background: 'var(--surface)', boxShadow: '0 -8px 30px -12px rgba(0,0,0,0.45)' }}
       >
         <div className="w-full max-w-sm mx-auto">
           {mode !== 'forgot' && (

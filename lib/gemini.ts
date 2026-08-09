@@ -2,6 +2,7 @@ export type ParsedTransaction = {
   item: string
   kategori: string
   jumlah: number
+  tanggal: string // format YYYY-MM-DD
 }
 
 // Gemini 3.1 Flash-Lite: model generasi terbaru (GA, bukan eksperimental),
@@ -47,24 +48,38 @@ export async function parseExpenseChat(
     throw new Error('Belum ada GEMINI_API_KEY / GEMINI_API_KEYS di environment variables')
   }
 
+  const todayStr = new Date().toISOString().slice(0, 10)
+  const todayLabel = new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+
   const systemPrompt = `Kamu adalah asisten pencatat keuangan. Tugasmu adalah membaca chat berbahasa Indonesia (termasuk bahasa gaul/sehari-hari) dari user tentang pengeluaran mereka, lalu mengubahnya menjadi daftar transaksi terstruktur dalam format JSON.
 
+Hari ini adalah ${todayLabel} (${todayStr}).
+
 ATURAN:
-1. Setiap transaksi harus punya: "item" (nama barang/jasa), "kategori", dan "jumlah" (angka, dalam Rupiah, tanpa titik/koma/simbol).
+1. Setiap transaksi harus punya: "item" (nama barang/jasa), "kategori", "jumlah" (angka, dalam Rupiah, tanpa titik/koma/simbol), dan "tanggal" (format YYYY-MM-DD).
 2. Konversi singkatan angka: "15k" / "15rb" / "15ribu" = 15000. "1.5jt" / "1,5jt" = 1500000.
 3. Gunakan salah satu kategori berikut jika cocok: ${existingCategories.join(', ')}. Jika tidak ada yang cocok, buat kategori baru yang singkat dan relevan.
 4. Satu kalimat bisa mengandung lebih dari satu transaksi — pisahkan masing-masing.
 5. Abaikan kata yang bukan transaksi (contoh: "terus", "sama", "abis itu").
-6. HANYA balas dengan JSON array yang valid, tanpa teks lain, tanpa markdown code block, tanpa penjelasan.
+6. Untuk "tanggal": baca kata penunjuk waktu di chat dan hitung tanggal aslinya relatif ke hari ini (${todayStr}).
+   - Tidak ada kata waktu disebut → pakai hari ini (${todayStr})
+   - "kemarin" → hari ini - 1 hari
+   - "kemarin lusa" → hari ini - 2 hari
+   - "N hari lalu" / "N hari yang lalu" → hari ini - N hari
+   - "minggu lalu" / "seminggu lalu" → hari ini - 7 hari
+   - "bulan lalu" → hari ini - 1 bulan (tanggal sama)
+   - Tanggal spesifik disebut (misal "tanggal 5", "5 Agustus") → gunakan tanggal itu, asumsikan bulan/tahun berjalan kalau tidak disebut, dan kalau tanggal itu belum terjadi di bulan ini maka gunakan bulan sebelumnya
+   - Kalau ada beberapa transaksi dengan waktu berbeda dalam satu chat, tiap transaksi pakai tanggalnya masing-masing
+7. HANYA balas dengan JSON array yang valid, tanpa teks lain, tanpa markdown code block, tanpa penjelasan.
 
 Format output:
-[{"item": "...", "kategori": "...", "jumlah": 0}]`
+[{"item": "...", "kategori": "...", "jumlah": 0, "tanggal": "YYYY-MM-DD"}]`
 
   async function callGemini(apiKey: string, withThinkingLevel: boolean) {
     const generationConfig: Record<string, unknown> = {
       temperature: 0.1,
       responseMimeType: 'application/json',
-      maxOutputTokens: 500,
+      maxOutputTokens: 700,
     }
     if (withThinkingLevel) {
       generationConfig.thinkingConfig = { thinkingLevel: 'low' }
@@ -157,7 +172,12 @@ Format output:
     throw new Error('Format hasil parsing tidak sesuai')
   }
 
-  return parsed.filter(
-    (t) => t.item && t.kategori && typeof t.jumlah === 'number' && t.jumlah > 0
-  )
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/
+
+  return parsed
+    .filter((t) => t.item && t.kategori && typeof t.jumlah === 'number' && t.jumlah > 0)
+    .map((t) => ({
+      ...t,
+      tanggal: typeof t.tanggal === 'string' && dateRegex.test(t.tanggal) ? t.tanggal : todayStr,
+    }))
 }

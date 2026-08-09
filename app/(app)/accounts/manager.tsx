@@ -102,7 +102,7 @@ export default function AccountsManager({ accounts }: { accounts: Account[] }) {
           ))}
         </div>
         {error === 'LIMIT_REACHED' ? (
-          <div className="flex items-start gap-3 mt-3 p-3 rounded-xl" style={{ background: '#fff6ec' }}>
+          <div className="flex items-start gap-3 mt-3 p-3 rounded-xl" style={{ background: 'var(--accent-soft)' }}>
             <Sparkles size={18} style={{ color: 'var(--accent)' }} className="flex-shrink-0" />
             <div>
               <p className="text-sm font-semibold" style={{ color: 'var(--accent)' }}>

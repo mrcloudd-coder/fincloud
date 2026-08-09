@@ -95,7 +95,7 @@ export default function BillingCard({ subscription }: { subscription: Subscripti
         )}
 
         {!subscription.hasFullAccess && (
-          <div className="flex items-start gap-3 mb-5 p-4 rounded-xl" style={{ background: '#fdeeee' }}>
+          <div className="flex items-start gap-3 mb-5 p-4 rounded-xl" style={{ background: 'var(--danger-soft)' }}>
             <XCircle size={20} style={{ color: 'var(--danger)' }} />
             <div>
               <p className="text-sm font-semibold" style={{ color: 'var(--danger)' }}>

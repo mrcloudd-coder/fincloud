@@ -92,7 +92,7 @@ export default function QrisPayment({ pendingRequest }: { pendingRequest: Pendin
   if (showRejectionNotice) {
     return (
       <div className="card p-6">
-        <div className="flex items-start gap-3 p-4 rounded-xl mb-4" style={{ background: '#fdeeee' }}>
+        <div className="flex items-start gap-3 p-4 rounded-xl mb-4" style={{ background: 'var(--danger-soft)' }}>
           <XCircle size={20} style={{ color: 'var(--danger)' }} className="flex-shrink-0" />
           <div>
             <p className="text-sm font-semibold" style={{ color: 'var(--danger)' }}>

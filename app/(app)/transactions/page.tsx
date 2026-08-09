@@ -58,7 +58,7 @@ export default async function TransactionsPage({
         <Link
           href="/billing"
           className="flex items-center gap-3 mb-6 p-4 rounded-xl"
-          style={{ background: '#fdeeee' }}
+          style={{ background: 'var(--danger-soft)' }}
         >
           <AlertTriangle size={18} style={{ color: 'var(--danger)' }} />
           <p className="text-sm font-medium" style={{ color: 'var(--danger)' }}>
