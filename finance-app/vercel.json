@@ -1,0 +1,9 @@
+{
+  "regions": ["sin1"],
+  "crons": [
+    {
+      "path": "/api/cron/cleanup-proofs",
+      "schedule": "0 18 * * *"
+    }
+  ]
+}
