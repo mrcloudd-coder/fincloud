@@ -43,7 +43,6 @@ export default function SummaryCalendarCard({
   const router = useRouter()
   const [mainMetric, setMainMetric] = useState<Metric>('saldo')
   const [showYearPicker, setShowYearPicker] = useState(false)
-  const [selectedDay, setSelectedDay] = useState<number | null>(null)
 
   const metricLabels: Record<Metric, string> = {
     saldo: isAccumulated ? 'Sisa Saldo (Akumulasi)' : `Sisa Bulan ${MONTH_NAMES[viewedMonth]}`,
@@ -67,7 +66,6 @@ export default function SummaryCalendarCard({
     const val = `${year}-${String(monthIdx + 1).padStart(2, '0')}`
     router.push(`/dashboard?viewMonth=${val}`)
     setShowYearPicker(false)
-    setSelectedDay(null)
   }
 
   function handlePrev() {
@@ -81,7 +79,6 @@ export default function SummaryCalendarCard({
   function handleToday() {
     router.push('/dashboard')
     setShowYearPicker(false)
-    setSelectedDay(null)
   }
 
   // ==== Kalender grid ====
@@ -252,41 +249,37 @@ export default function SummaryCalendarCard({
 
               if (hasExpense) {
                 return (
-                  <button
+                  <div
                     key={i}
-                    type="button"
-                    onClick={() => router.push(`/transactions?date=${dateKey}`)}
                     className="aspect-square flex items-center justify-center relative"
                     style={{
                       borderRadius: '45% 45% 50% 50% / 55% 55% 45% 45%',
                       background: 'linear-gradient(160deg, #1c3a30 0%, #164030 100%)',
                       boxShadow: isToday ? '0 0 0 2px var(--primary)' : 'none',
                     }}
-                    title={`${formatFull(amount)} — klik untuk lihat riwayat`}
+                    title={formatFull(amount)}
                   >
                     <span className="absolute top-0.5 left-1 text-[8px] opacity-50">☁️</span>
                     <span className="font-extrabold leading-none px-0.5 text-center" style={{ color: 'var(--primary)', fontSize: '11px' }}>
                       -{formatShort(amount)}
                     </span>
-                  </button>
+                  </div>
                 )
               }
 
               return (
-                <button
+                <div
                   key={i}
-                  type="button"
-                  onClick={() => setSelectedDay((d) => (d === day ? null : day))}
                   className="aspect-square rounded-lg flex items-center justify-center"
                   style={{
                     background: 'var(--surface2)',
-                    border: selectedDay === day ? '2px solid var(--accent)' : isToday ? '2px solid var(--primary)' : '1px solid transparent',
+                    border: isToday ? '2px solid var(--primary)' : '1px solid transparent',
                   }}
                 >
-                  <span className="text-[11px]" style={{ color: selectedDay === day ? 'var(--accent)' : isToday ? 'var(--primary)' : 'var(--ink-soft)' }}>
+                  <span className="text-[11px]" style={{ color: isToday ? 'var(--primary)' : 'var(--ink-soft)' }}>
                     {day}
                   </span>
-                </button>
+                </div>
               )
             })}
           </div>

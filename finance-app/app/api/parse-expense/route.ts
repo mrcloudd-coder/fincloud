@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Belum login' }, { status: 401 })
   }
 
-  const { text, referenceDate } = await req.json()
+  const { text } = await req.json()
 
   if (!text || typeof text !== 'string' || !text.trim()) {
     return NextResponse.json({ error: 'Chat tidak boleh kosong' }, { status: 400 })
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
   const categoryNames = (categories ?? []).map((c) => c.name)
 
   try {
-    const results = await parseExpenseChat(text, categoryNames, referenceDate)
+    const results = await parseExpenseChat(text, categoryNames)
     return NextResponse.json({ transactions: results })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Terjadi kesalahan saat parsing'
