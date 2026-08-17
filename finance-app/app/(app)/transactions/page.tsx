@@ -12,7 +12,7 @@ const MONTH_NAMES = [
 export default async function TransactionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ year?: string; month?: string }>
+  searchParams: Promise<{ year?: string; month?: string; day?: string }>
 }) {
   const supabase = await createClient()
   const {
@@ -27,9 +27,14 @@ export default async function TransactionsPage({
   const now = new Date()
   const selectedYear = Number(params.year) || now.getFullYear()
   const selectedMonth = Number(params.month) || now.getMonth() + 1
+  const selectedDay = params.day ? Number(params.day) : null
 
-  const startDate = new Date(selectedYear, selectedMonth - 1, 1).toISOString().slice(0, 10)
-  const endDate = new Date(selectedYear, selectedMonth, 0).toISOString().slice(0, 10)
+  const startDate = selectedDay
+    ? new Date(selectedYear, selectedMonth - 1, selectedDay).toISOString().slice(0, 10)
+    : new Date(selectedYear, selectedMonth - 1, 1).toISOString().slice(0, 10)
+  const endDate = selectedDay
+    ? startDate
+    : new Date(selectedYear, selectedMonth, 0).toISOString().slice(0, 10)
 
   const [{ data: transactions }, { data: categories }, { data: accounts }] = await Promise.all([
     supabase
@@ -53,6 +58,24 @@ export default async function TransactionsPage({
       <p className="text-sm mb-6" style={{ color: 'var(--ink-soft)' }}>
         Lihat transaksi per bulan, edit atau export ke Excel.
       </p>
+
+      {selectedDay && (
+        <div
+          className="flex items-center justify-between gap-3 mb-6 p-3.5 rounded-xl"
+          style={{ background: 'var(--accent-soft)', border: '1px solid var(--accent)' }}
+        >
+          <p className="text-sm font-semibold" style={{ color: 'var(--accent)' }}>
+            📅 Menampilkan tanggal {selectedDay} {MONTH_NAMES[selectedMonth - 1]} {selectedYear} saja
+          </p>
+          <Link
+            href={`/transactions?year=${selectedYear}&month=${selectedMonth}`}
+            className="text-xs font-bold underline flex-shrink-0"
+            style={{ color: 'var(--accent)' }}
+          >
+            Lihat semua bulan ini
+          </Link>
+        </div>
+      )}
 
       {!subscription.hasFullAccess && (
         <Link

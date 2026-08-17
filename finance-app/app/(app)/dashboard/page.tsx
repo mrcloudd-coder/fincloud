@@ -1,9 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import DashboardCharts from './charts'
 import IncomeManager from './income-manager'
-import QuickChat from './quick-chat'
 import AnnualCharts from './annual-charts'
-import SummaryCalendarCard from './summary-calendar-card'
+import DashboardInteractive from './dashboard-interactive'
 import RangeFilter from './range-filter'
 import Link from 'next/link'
 import { getSubscriptionInfo } from '@/lib/subscription'
@@ -47,14 +46,21 @@ export default async function DashboardPage({
   const viewedMonthStart = new Date(viewedYear, viewedMonth, 1).toISOString().slice(0, 10)
   const viewedMonthEnd = new Date(viewedYear, viewedMonth + 1, 0).toISOString().slice(0, 10)
 
-  // Rentang buat "Transaksi Terbaru" + chart kategori: default bulan ini,
-  // atau dari bulan yang dipilih user sampai sekarang.
-  let rangeStart = startOfMonth
-  let rangeLabel = `${MONTH_NAMES[now.getMonth()]} ${now.getFullYear()}`
+  // Rentang buat "Transaksi Terbaru" + chart kategori. Prioritas:
+  // 1) Dropdown "Dari bulan..." (params.from) kalau lagi dipakai — dari bulan itu sampai sekarang
+  // 2) Kalau nggak, ikut bulan yang lagi dibuka di kalender (viewMonth / default bulan sekarang)
+  let rangeStart: string
+  let rangeEnd: string | null // null = nggak dibatasi (nyampe sekarang)
+  let rangeLabel: string
   if (params.from) {
     const [y, m] = params.from.split('-').map(Number)
     rangeStart = new Date(y, m - 1, 1).toISOString().slice(0, 10)
+    rangeEnd = null
     rangeLabel = `${MONTH_NAMES[m - 1]} ${y} - sekarang`
+  } else {
+    rangeStart = viewedMonthStart
+    rangeEnd = viewedMonthEnd
+    rangeLabel = `${MONTH_NAMES[viewedMonth]} ${viewedYear}`
   }
 
   const [
@@ -62,8 +68,9 @@ export default async function DashboardPage({
     { data: allTransactions },
     { data: viewedIncome },
     { data: viewedTransactions },
-    { data: rangeIncome },
-    { data: rangeTransactions },
+    { data: thisMonthIncomeData },
+    { data: thisMonthExpenseData },
+    { data: rangeTransactionsRaw },
     { data: categories },
     { data: accounts },
     { data: yearTransactions },
@@ -75,20 +82,25 @@ export default async function DashboardPage({
     // Data bulan yang lagi dibuka di kalender — buat mode bulan spesifik + titik kalender
     supabase.from('income').select('amount, date, account_id').eq('user_id', user.id).gte('date', viewedMonthStart).lte('date', viewedMonthEnd),
     supabase.from('transactions').select('amount, date, account_id').eq('user_id', user.id).gte('date', viewedMonthStart).lte('date', viewedMonthEnd),
-    // Rentang terpilih (fitur RangeFilter terpisah) — buat budget bulan ini (income) + tabel & chart kategori
+    // Budget bar SELALU bulan kalender beneran (nggak ikut navigasi apapun)
     supabase.from('income').select('amount, date').eq('user_id', user.id).gte('date', startOfMonth),
-    supabase
-      .from('transactions')
-      .select('id, item, amount, date, account_id, category:categories(name, color)')
-      .eq('user_id', user.id)
-      .gte('date', rangeStart)
-      .order('date', { ascending: false })
-      .order('created_at', { ascending: false }),
+    supabase.from('transactions').select('amount, date').eq('user_id', user.id).gte('date', startOfMonth),
+    // Chart kategori & tabel riwayat — ikut prioritas from > viewMonth > bulan sekarang
+    (() => {
+      let q = supabase
+        .from('transactions')
+        .select('id, item, amount, date, account_id, category:categories(name, color)')
+        .eq('user_id', user.id)
+        .gte('date', rangeStart)
+      if (rangeEnd) q = q.lte('date', rangeEnd)
+      return q.order('date', { ascending: false }).order('created_at', { ascending: false })
+    })(),
     supabase.from('categories').select('id, name').order('name'),
     supabase.from('accounts').select('id, name, color').order('name'),
     supabase.from('transactions').select('amount, date').eq('user_id', user.id).gte('date', yearStart).lte('date', yearEnd),
     supabase.from('income').select('amount, date').eq('user_id', user.id).gte('date', yearStart).lte('date', yearEnd),
   ])
+  const rangeTransactions = rangeTransactionsRaw
 
   const monthlyExpense = Array(12).fill(0)
   const monthlyIncome = Array(12).fill(0)
@@ -137,11 +149,9 @@ export default async function DashboardPage({
 
   const yearOptions = Array.from({ length: 5 }).map((_, i) => now.getFullYear() - i)
 
-  // Budget bulan ini (selalu per-bulan, nggak ikut filter rentang RangeFilter)
-  const thisMonthIncome = (rangeIncome ?? []).reduce((sum, i) => sum + Number(i.amount), 0)
-  const thisMonthExpense = (rangeTransactions ?? [])
-    .filter((t) => t.date >= startOfMonth)
-    .reduce((sum, t) => sum + Number(t.amount), 0)
+  // Budget bulan ini (selalu bulan kalender beneran, nggak ikut navigasi apapun)
+  const thisMonthIncome = (thisMonthIncomeData ?? []).reduce((sum, i) => sum + Number(i.amount), 0)
+  const thisMonthExpense = (thisMonthExpenseData ?? []).reduce((sum, t) => sum + Number(t.amount), 0)
 
   // Chart kategori & tabel riwayat — ikut filter RangeFilter
   const byCategory: Record<string, { name: string; value: number; color: string }> = {}
@@ -188,21 +198,16 @@ export default async function DashboardPage({
         </Link>
       )}
 
-      <div className="mb-4">
-        <SummaryCalendarCard
-          metrics={summaryMetrics}
-          accounts={accountBalances}
-          isAccumulated={isAccumulated}
-          dailyTotals={dailyTotals}
-          viewedYear={viewedYear}
-          viewedMonth={viewedMonth}
-          yearOptions={yearOptions}
-        />
-      </div>
-
-      <div className="mb-4">
-        <QuickChat categories={categories ?? []} accounts={accounts ?? []} />
-      </div>
+      <DashboardInteractive
+        metrics={summaryMetrics}
+        accounts={accountBalances}
+        isAccumulated={isAccumulated}
+        dailyTotals={dailyTotals}
+        viewedYear={viewedYear}
+        viewedMonth={viewedMonth}
+        yearOptions={yearOptions}
+        categories={categories ?? []}
+      />
 
       <div className="card p-5 mb-4">
         <IncomeManager incomeList={allIncome ?? []} accounts={accounts ?? []} />

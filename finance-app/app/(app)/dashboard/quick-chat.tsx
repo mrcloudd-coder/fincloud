@@ -14,9 +14,13 @@ const EXAMPLE_CHIPS = ['kemarin makan 20k', 'beli pulsa 25k', 'jajan cilok 15k, 
 export default function QuickChat({
   categories: initialCategories,
   accounts,
+  prefillDate,
+  onPrefillConsumed,
 }: {
   categories: Category[]
   accounts: Account[]
+  prefillDate?: string | null
+  onPrefillConsumed?: () => void
 }) {
   const [accountId, setAccountId] = useState('')
   const [text, setText] = useState('')
@@ -51,7 +55,12 @@ export default function QuickChat({
       if (!data.transactions?.length) {
         setError('AI tidak menemukan transaksi dari chat kamu. Coba lebih spesifik, misal: "jajan cilok 15k".')
       } else {
-        setPending(data.transactions)
+        // Kalau user klik "Catat di sini" dari kalender, tanggal itu MENANG
+        // dibanding tebakan AI — user udah eksplisit milih tanggalnya.
+        const transactions = prefillDate
+          ? data.transactions.map((t: ParsedItem) => ({ ...t, tanggal: prefillDate }))
+          : data.transactions
+        setPending(transactions)
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Terjadi kesalahan')
@@ -120,6 +129,7 @@ export default function QuickChat({
     setPending(null)
     setText('')
     setSaving(false)
+    onPrefillConsumed?.()
     router.refresh()
   }
 
@@ -149,8 +159,28 @@ export default function QuickChat({
       </div>
 
       <div className="p-5">
+        {prefillDate && (
+          <div
+            className="flex items-center justify-between gap-2 mb-3 px-3.5 py-2.5 rounded-xl"
+            style={{ background: 'var(--accent-soft)', border: '1px solid var(--accent)' }}
+          >
+            <p className="text-xs font-bold" style={{ color: 'var(--accent)' }}>
+              📅 Nyatet buat tanggal{' '}
+              {new Date(prefillDate + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+            </p>
+            <button
+              type="button"
+              onClick={() => onPrefillConsumed?.()}
+              className="text-xs font-bold flex-shrink-0"
+              style={{ color: 'var(--accent)' }}
+            >
+              Batal
+            </button>
+          </div>
+        )}
+
         {/* ===== Pill: Rekening & Tanggal ===== */}
-        <div className="flex gap-2.5 mb-4">
+        <div className="flex flex-col sm:flex-row gap-2.5 mb-4">
           <select
             value={accountId}
             onChange={(e) => setAccountId(e.target.value)}
@@ -173,7 +203,9 @@ export default function QuickChat({
               style={{ background: 'var(--accent-soft)', border: '1.5px solid var(--accent)', color: 'var(--accent)' }}
             >
               <CalendarDays size={15} />
-              Hari ini
+              {prefillDate
+                ? new Date(prefillDate + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })
+                : 'Hari ini'}
             </div>
           )}
         </div>
@@ -312,7 +344,7 @@ export default function QuickChat({
             <div className="flex items-center justify-between pt-3" style={{ borderTop: '1px solid var(--border)' }}>
               <span className="text-xs font-medium">Total: Rp{total.toLocaleString('id-ID')}</span>
               <div className="flex gap-2">
-                <button onClick={() => setPending(null)} type="button" className="btn-secondary px-3 py-1.5 text-xs font-medium">
+                <button onClick={() => { setPending(null); onPrefillConsumed?.() }} type="button" className="btn-secondary px-3 py-1.5 text-xs font-medium">
                   Batal
                 </button>
                 <button onClick={confirmSave} disabled={saving} type="button" className="btn-primary px-3 py-1.5 text-xs font-medium flex items-center gap-1">

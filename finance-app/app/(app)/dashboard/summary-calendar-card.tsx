@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, ChevronRight, Wallet } from 'lucide-react'
+import Link from 'next/link'
+import { ChevronLeft, ChevronRight, Wallet, Plus } from 'lucide-react'
 
 const DAY_NAMES = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab']
 const MONTH_NAMES = [
@@ -31,6 +32,7 @@ export default function SummaryCalendarCard({
   viewedYear,
   viewedMonth,
   yearOptions,
+  onRecordHere,
 }: {
   metrics: { saldo: number; pemasukan: number; pengeluaran: number }
   accounts: AccountBalance[]
@@ -39,10 +41,12 @@ export default function SummaryCalendarCard({
   viewedYear: number
   viewedMonth: number // 0-indexed
   yearOptions: number[]
+  onRecordHere: (dateKey: string) => void
 }) {
   const router = useRouter()
   const [mainMetric, setMainMetric] = useState<Metric>('saldo')
   const [showYearPicker, setShowYearPicker] = useState(false)
+  const [selectedEmptyDay, setSelectedEmptyDay] = useState<string | null>(null)
 
   const metricLabels: Record<Metric, string> = {
     saldo: isAccumulated ? 'Sisa Saldo (Akumulasi)' : `Sisa Bulan ${MONTH_NAMES[viewedMonth]}`,
@@ -249,36 +253,65 @@ export default function SummaryCalendarCard({
 
               if (hasExpense) {
                 return (
-                  <div
+                  <Link
                     key={i}
+                    href={`/transactions?year=${viewedYear}&month=${viewedMonth + 1}&day=${day}`}
                     className="aspect-square flex items-center justify-center relative"
                     style={{
                       borderRadius: '45% 45% 50% 50% / 55% 55% 45% 45%',
                       background: 'linear-gradient(160deg, #1c3a30 0%, #164030 100%)',
                       boxShadow: isToday ? '0 0 0 2px var(--primary)' : 'none',
                     }}
-                    title={formatFull(amount)}
+                    title={`${formatFull(amount)} — klik buat lihat riwayat tanggal ini`}
                   >
                     <span className="absolute top-0.5 left-1 text-[8px] opacity-50">☁️</span>
                     <span className="font-extrabold leading-none px-0.5 text-center" style={{ color: 'var(--primary)', fontSize: '11px' }}>
                       -{formatShort(amount)}
                     </span>
-                  </div>
+                  </Link>
                 )
               }
 
+              const isSelected = selectedEmptyDay === dateKey
+
               return (
-                <div
-                  key={i}
-                  className="aspect-square rounded-lg flex items-center justify-center"
-                  style={{
-                    background: 'var(--surface2)',
-                    border: isToday ? '2px solid var(--primary)' : '1px solid transparent',
-                  }}
-                >
-                  <span className="text-[11px]" style={{ color: isToday ? 'var(--primary)' : 'var(--ink-soft)' }}>
-                    {day}
-                  </span>
+                <div key={i} className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedEmptyDay(isSelected ? null : dateKey)}
+                    className="aspect-square rounded-lg flex items-center justify-center w-full"
+                    style={{
+                      background: isSelected ? 'var(--primary-soft)' : 'var(--surface2)',
+                      border: isSelected ? '2px solid var(--primary)' : isToday ? '2px solid var(--primary)' : '1px solid transparent',
+                    }}
+                  >
+                    <span className="text-[11px]" style={{ color: isSelected || isToday ? 'var(--primary)' : 'var(--ink-soft)' }}>
+                      {day}
+                    </span>
+                  </button>
+
+                  {isSelected && (
+                    <div
+                      className="absolute z-20 top-full mt-1 left-1/2 -translate-x-1/2 rounded-xl p-2 shadow-lg"
+                      style={{ background: 'var(--surface2)', border: '1px solid var(--border)', width: '150px' }}
+                    >
+                      <p className="text-[10px] mb-1.5" style={{ color: 'var(--ink-soft)' }}>
+                        Belum ada pengeluaran
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onRecordHere(dateKey)
+                          setSelectedEmptyDay(null)
+                        }}
+                        className="w-full flex items-center justify-center gap-1 text-[10px] font-bold py-1.5 rounded-lg"
+                        style={{ background: 'var(--primary)', color: '#0b3a2a' }}
+                      >
+                        <Plus size={11} />
+                        Catat di sini
+                      </button>
+                    </div>
+                  )}
                 </div>
               )
             })}
