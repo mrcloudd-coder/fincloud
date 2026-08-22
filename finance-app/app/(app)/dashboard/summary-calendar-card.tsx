@@ -255,7 +255,7 @@ export default function SummaryCalendarCard({
                 return (
                   <Link
                     key={i}
-                    href={`/transactions?year=${viewedYear}&month=${viewedMonth + 1}&day=${day}`}
+                    href={`/transactions?date=${dateKey}`}
                     className="aspect-square flex items-center justify-center relative"
                     style={{
                       borderRadius: '45% 45% 50% 50% / 55% 55% 45% 45%',

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { Loader2, Send, Check, X, Pencil, Wallet, CalendarDays } from 'lucide-react'
+import { Loader2, Send, Check, X, Pencil, CalendarDays, ChevronDown } from 'lucide-react'
 
 type ParsedItem = { item: string; kategori: string; jumlah: number; tanggal: string }
 type Category = { id: string; name: string }
@@ -22,6 +22,7 @@ export default function QuickChat({
   prefillDate?: string | null
   onPrefillConsumed?: () => void
 }) {
+  const todayStr = new Date().toISOString().slice(0, 10)
   const [accountId, setAccountId] = useState('')
   const [text, setText] = useState('')
   const [loading, setLoading] = useState(false)
@@ -30,11 +31,27 @@ export default function QuickChat({
   const [categories, setCategories] = useState<Category[]>(initialCategories)
   const [saving, setSaving] = useState(false)
   const [savedMsg, setSavedMsg] = useState<string | null>(null)
+  const [refDate, setRefDate] = useState(prefillDate || todayStr)
+  const [showDatePicker, setShowDatePicker] = useState(false)
+  const [lastPrefillDate, setLastPrefillDate] = useState(prefillDate)
   const supabase = createClient()
   const router = useRouter()
 
+  // Kalau user klik "Catat di sini" dari kalender, tanggal itu otomatis
+  // masuk ke badge tanggal (tapi user tetap bisa klik & ganti lagi kalau mau).
+  // Pola ini ("adjust state during render") dipakai alih-alih useEffect
+  // supaya gak ada render tambahan yang gak perlu.
+  if (prefillDate !== lastPrefillDate) {
+    setLastPrefillDate(prefillDate)
+    if (prefillDate) setRefDate(prefillDate)
+  }
+
   const selectedAccount = accounts.find((a) => a.id === accountId)
   const isLocked = !accountId
+  const isCustomDate = refDate !== todayStr
+  const refDateLabel = isCustomDate
+    ? new Date(`${refDate}T00:00:00`).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })
+    : 'Hari ini'
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -48,18 +65,16 @@ export default function QuickChat({
       const res = await fetch('/api/parse-expense', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, referenceDate: refDate }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Gagal memproses chat')
       if (!data.transactions?.length) {
         setError('AI tidak menemukan transaksi dari chat kamu. Coba lebih spesifik, misal: "jajan cilok 15k".')
       } else {
-        // Kalau user klik "Catat di sini" dari kalender, tanggal itu MENANG
-        // dibanding tebakan AI — user udah eksplisit milih tanggalnya.
-        const transactions = prefillDate
-          ? data.transactions.map((t: ParsedItem) => ({ ...t, tanggal: prefillDate }))
-          : data.transactions
+        // Semua item pakai tanggal dari badge di atas — biar konsisten &
+        // gampang dikontrol dari satu tempat aja (bukan per-item lagi).
+        const transactions = data.transactions.map((t: ParsedItem) => ({ ...t, tanggal: refDate }))
         setPending(transactions)
       }
     } catch (err) {
@@ -79,6 +94,13 @@ export default function QuickChat({
   function removePending(index: number) {
     if (!pending) return
     setPending(pending.filter((_, i) => i !== index))
+  }
+
+  function resetAfterDone() {
+    setPending(null)
+    setText('')
+    setRefDate(todayStr)
+    onPrefillConsumed?.()
   }
 
   async function confirmSave() {
@@ -126,15 +148,12 @@ export default function QuickChat({
 
     setCategories(currentCategories)
     setSavedMsg(`${rows.length} transaksi berhasil disimpan dari ${selectedAccount?.name ?? 'rekening'}.`)
-    setPending(null)
-    setText('')
     setSaving(false)
-    onPrefillConsumed?.()
+    resetAfterDone()
     router.refresh()
   }
 
   const total = pending?.reduce((sum, t) => sum + (Number(t.jumlah) || 0), 0) ?? 0
-  const todayStr = new Date().toISOString().slice(0, 10)
 
   return (
     <div className="card overflow-hidden">
@@ -159,55 +178,84 @@ export default function QuickChat({
       </div>
 
       <div className="p-5">
-        {prefillDate && (
-          <div
-            className="flex items-center justify-between gap-2 mb-3 px-3.5 py-2.5 rounded-xl"
-            style={{ background: 'var(--accent-soft)', border: '1px solid var(--accent)' }}
-          >
-            <p className="text-xs font-bold" style={{ color: 'var(--accent)' }}>
-              📅 Nyatet buat tanggal{' '}
-              {new Date(prefillDate + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
-            </p>
-            <button
-              type="button"
-              onClick={() => onPrefillConsumed?.()}
-              className="text-xs font-bold flex-shrink-0"
-              style={{ color: 'var(--accent)' }}
-            >
-              Batal
-            </button>
-          </div>
-        )}
-
         {/* ===== Pill: Rekening & Tanggal ===== */}
         <div className="flex flex-col sm:flex-row gap-2.5 mb-4">
-          <select
-            value={accountId}
-            onChange={(e) => setAccountId(e.target.value)}
-            className="flex-1 px-3.5 py-3 text-sm font-bold rounded-xl"
-            style={
-              accountId
-                ? { background: 'var(--primary-soft)', border: '1.5px solid var(--primary)', color: 'var(--primary)' }
-                : { background: 'var(--bg)', border: '1.5px dashed var(--border)', color: 'var(--ink-soft)' }
-            }
-          >
-            <option value="">🏦 Pilih Rekening</option>
-            {accounts.map((a) => (
-              <option key={a.id} value={a.id}>🏦 {a.name}</option>
-            ))}
-          </select>
-
-          {pending && pending.length > 0 ? null : (
-            <div
-              className="flex-1 flex items-center gap-2 px-3.5 py-3 text-sm font-bold rounded-xl"
-              style={{ background: 'var(--accent-soft)', border: '1.5px solid var(--accent)', color: 'var(--accent)' }}
+          <div className="flex-1 relative">
+            <select
+              value={accountId}
+              onChange={(e) => setAccountId(e.target.value)}
+              className="w-full px-3.5 py-3 text-sm font-bold rounded-xl appearance-none"
+              style={
+                accountId
+                  ? { background: 'var(--primary-soft)', border: '1.5px solid var(--primary)', color: 'var(--primary)' }
+                  : { background: 'var(--bg)', border: '1.5px dashed var(--border)', color: 'var(--ink-soft)' }
+              }
             >
-              <CalendarDays size={15} />
-              {prefillDate
-                ? new Date(prefillDate + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })
-                : 'Hari ini'}
-            </div>
-          )}
+              <option value="">🏦 Pilih Rekening</option>
+              {accounts.map((a) => (
+                <option key={a.id} value={a.id}>🏦 {a.name}</option>
+              ))}
+            </select>
+            <ChevronDown size={15} className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: accountId ? 'var(--primary)' : 'var(--ink-soft)' }} />
+          </div>
+
+          <div className="flex-1 relative">
+            <button
+              type="button"
+              onClick={() => setShowDatePicker((v) => !v)}
+              className="w-full flex items-center justify-between gap-2 px-3.5 py-3 text-sm font-bold rounded-xl"
+              style={
+                isCustomDate
+                  ? { background: 'var(--accent)', border: '1.5px solid var(--accent)', color: '#3a2e1c' }
+                  : { background: 'var(--accent-soft)', border: '1.5px solid var(--accent)', color: 'var(--accent)' }
+              }
+            >
+              <span className="flex items-center gap-2">
+                <CalendarDays size={15} />
+                {refDateLabel}
+              </span>
+              <ChevronDown size={15} />
+            </button>
+
+            {showDatePicker && (
+              <div
+                className="absolute top-full left-0 right-0 mt-1.5 z-20 rounded-xl p-3 shadow-lg"
+                style={{ background: 'var(--surface2)', border: '1px solid var(--border)' }}
+              >
+                <p className="text-[11px] font-semibold mb-2" style={{ color: 'var(--ink-soft)' }}>
+                  Transaksi ini terjadi tanggal berapa?
+                </p>
+                <input
+                  type="date"
+                  value={refDate}
+                  max={todayStr}
+                  onChange={(e) => setRefDate(e.target.value || todayStr)}
+                  className="w-full px-2.5 py-2 text-sm mb-2"
+                  autoFocus
+                />
+                <div className="flex gap-2">
+                  {isCustomDate && (
+                    <button
+                      type="button"
+                      onClick={() => setRefDate(todayStr)}
+                      className="flex-1 text-xs font-semibold py-1.5 rounded-lg"
+                      style={{ background: 'var(--primary-soft)', color: 'var(--primary)' }}
+                    >
+                      Hari ini
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowDatePicker(false)}
+                    className="flex-1 text-xs font-semibold py-1.5 rounded-lg"
+                    style={{ background: 'var(--primary)', color: '#0b3a2a' }}
+                  >
+                    Selesai
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* ===== Zona chat besar ===== */}
@@ -216,7 +264,11 @@ export default function QuickChat({
           style={{ background: isLocked ? 'var(--bg)' : 'linear-gradient(160deg, #1c1730 0%, #221b38 100%)', border: isLocked ? '1.5px dashed var(--border)' : '1.5px solid var(--border)' }}
         >
           <p className="text-xs font-bold mb-3 relative z-10" style={{ color: isLocked ? 'var(--ink-soft)' : 'var(--accent)' }}>
-            {isLocked ? '🔒 Pilih rekening dulu buat mulai catat' : '💬 Tulis pengeluaranmu, sedetail atau sesantai apapun'}
+            {isLocked
+              ? '🔒 Pilih rekening dulu buat mulai catat'
+              : isCustomDate
+              ? `📅 Nyatet buat tanggal ${refDateLabel} — bukan hari ini`
+              : '💬 Tulis pengeluaranmu, sedetail atau sesantai apapun'}
           </p>
 
           <form onSubmit={handleSubmit} className="flex items-center gap-3 relative z-10">
@@ -282,69 +334,52 @@ export default function QuickChat({
         {pending && pending.length > 0 && (
           <div className="p-4 rounded-xl mt-4" style={{ background: 'var(--bg)' }}>
             <p className="text-xs mb-3" style={{ color: 'var(--ink-soft)' }}>
-              Semua item ini akan tercatat keluar dari <strong style={{ color: 'var(--primary)' }}>{selectedAccount?.name}</strong>
+              Semua item ini akan tercatat keluar dari <strong style={{ color: 'var(--primary)' }}>{selectedAccount?.name}</strong>, tanggal <strong style={{ color: 'var(--primary)' }}>{refDateLabel}</strong>
             </p>
             <div className="space-y-2 mb-3">
               {pending.map((t, i) => {
-                const isNotToday = t.tanggal !== todayStr
+                // Kategori yang diajukan AI mungkin belum ada di daftar kategori
+                // user (kategori baru) — tetap dimasukkan ke opsi biar kepilih,
+                // tapi user bebas ganti ke kategori lain kapan aja.
+                const categoryOptions = categories.some((c) => c.name.toLowerCase() === t.kategori.toLowerCase())
+                  ? categories
+                  : [...categories, { id: '__ai__', name: t.kategori }]
+
                 return (
-                  <div
-                    key={i}
-                    className="flex flex-col gap-1.5 p-2.5 rounded-lg"
-                    style={{ background: isNotToday ? 'var(--accent-soft)' : 'var(--surface)' }}
-                  >
-                    <div className="flex items-center gap-1.5">
-                      <Pencil size={12} style={{ color: 'var(--ink-soft)' }} />
-                      <input
-                        value={t.item}
-                        onChange={(e) => updatePending(i, 'item', e.target.value)}
-                        className="flex-1 px-2 py-1 text-xs"
-                      />
-                      <input
-                        value={t.kategori}
-                        onChange={(e) => updatePending(i, 'kategori', e.target.value)}
-                        list="quick-category-list"
-                        className="w-24 px-2 py-1 text-xs"
-                      />
-                      <input
-                        type="number"
-                        value={t.jumlah}
-                        onChange={(e) => updatePending(i, 'jumlah', Number(e.target.value))}
-                        className="w-20 px-2 py-1 text-xs"
-                      />
-                      <button onClick={() => removePending(i)} type="button" style={{ color: 'var(--danger)' }}>
-                        <X size={14} />
-                      </button>
-                    </div>
-                    <div className="flex items-center gap-1.5 pl-4">
-                      <CalendarDays size={12} style={{ color: isNotToday ? 'var(--accent)' : 'var(--ink-soft)' }} />
-                      <input
-                        type="date"
-                        value={t.tanggal}
-                        onChange={(e) => updatePending(i, 'tanggal', e.target.value)}
-                        className="px-2 py-1 text-xs"
-                      />
-                      {isNotToday && (
-                        <span className="text-[10px] font-medium" style={{ color: 'var(--accent)' }}>
-                          AI mendeteksi ini bukan hari ini — cek lagi ya
-                        </span>
-                      )}
-                    </div>
+                  <div key={i} className="flex items-center gap-1.5 p-2.5 rounded-lg" style={{ background: 'var(--surface)' }}>
+                    <Pencil size={12} style={{ color: 'var(--ink-soft)' }} />
+                    <input
+                      value={t.item}
+                      onChange={(e) => updatePending(i, 'item', e.target.value)}
+                      className="flex-1 min-w-0 px-2 py-1.5 text-xs"
+                    />
+                    <select
+                      value={t.kategori}
+                      onChange={(e) => updatePending(i, 'kategori', e.target.value)}
+                      className="w-28 px-2 py-1.5 text-xs"
+                    >
+                      {categoryOptions.map((c) => (
+                        <option key={c.id} value={c.name}>{c.name}</option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      value={t.jumlah}
+                      onChange={(e) => updatePending(i, 'jumlah', Number(e.target.value))}
+                      className="w-20 px-2 py-1.5 text-xs"
+                    />
+                    <button onClick={() => removePending(i)} type="button" style={{ color: 'var(--danger)' }}>
+                      <X size={14} />
+                    </button>
                   </div>
                 )
               })}
             </div>
 
-            <datalist id="quick-category-list">
-              {categories.map((c) => (
-                <option key={c.id} value={c.name} />
-              ))}
-            </datalist>
-
             <div className="flex items-center justify-between pt-3" style={{ borderTop: '1px solid var(--border)' }}>
               <span className="text-xs font-medium">Total: Rp{total.toLocaleString('id-ID')}</span>
               <div className="flex gap-2">
-                <button onClick={() => { setPending(null); onPrefillConsumed?.() }} type="button" className="btn-secondary px-3 py-1.5 text-xs font-medium">
+                <button onClick={resetAfterDone} type="button" className="btn-secondary px-3 py-1.5 text-xs font-medium">
                   Batal
                 </button>
                 <button onClick={confirmSave} disabled={saving} type="button" className="btn-primary px-3 py-1.5 text-xs font-medium flex items-center gap-1">
