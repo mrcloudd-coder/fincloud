@@ -200,7 +200,7 @@ export default function QrisPayment({ pendingRequest }: { pendingRequest: Pendin
         <img src="/qris.png" alt="QRIS FinCloud" className="w-full" />
       </div>
       <p className="text-xs text-center mb-4" style={{ color: 'var(--ink-soft)' }}>
-        Scan QRIS di atas, transfer <strong>Rp15.000</strong>, lalu upload bukti transfernya di bawah.
+        Scan QRIS di atas — nominal <strong>Rp15.000</strong> udah otomatis terisi, tinggal konfirmasi di aplikasi pembayaranmu. Setelah bayar, upload bukti transfernya di bawah.
         Fitur premium langsung aktif begitu bukti terkirim.
       </p>
 
